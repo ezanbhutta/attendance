@@ -1,0 +1,309 @@
+-- Attendance computation + report views (build spec §7).
+-- Status is always 255 on this device, so check-in/out are DERIVED by time:
+-- first punch of the shift-day = in, last = out. All functions are SECURITY
+-- DEFINER so the recompute triggers can write attendance_daily regardless of
+-- which role inserted the punch.
+
+-- ─── config helpers ─────────────────────────────────────────────────────────
+create or replace function attendance_config_text(p_key text, p_default text)
+returns text language sql stable as $$
+  select coalesce((select value #>> '{}' from app_config where key = p_key), p_default);
+$$;
+
+create or replace function attendance_config_int(p_key text, p_default int)
+returns int language sql stable as $$
+  select coalesce((select (value #>> '{}')::int from app_config where key = p_key), p_default);
+$$;
+
+create or replace function attendance_tz()
+returns text language sql stable as $$
+  select attendance_config_text('timezone', 'Asia/Karachi');
+$$;
+
+-- ─── shift resolution (priority: temporary > employee > group > dept > global) ─
+create or replace function resolve_shift_id(p_emp bigint, p_date date)
+returns bigint language plpgsql stable security definer set search_path = public as $$
+declare v bigint; v_group bigint; v_dept bigint;
+begin
+  select shift_id into v from temporary_schedules
+    where employee_id = p_emp and the_date = p_date order by id desc limit 1;
+  if v is not null then return v; end if;
+
+  select shift_id into v from employee_schedules
+    where employee_id = p_emp and p_date between start_date and coalesce(end_date, 'infinity'::date)
+    order by start_date desc nulls last, id desc limit 1;
+  if v is not null then return v; end if;
+
+  select group_id, department_id into v_group, v_dept from employees where id = p_emp;
+
+  if v_group is not null then
+    select shift_id into v from group_schedules
+      where group_id = v_group and p_date between start_date and coalesce(end_date, 'infinity'::date)
+      order by start_date desc nulls last, id desc limit 1;
+    if v is not null then return v; end if;
+  end if;
+
+  if v_dept is not null then
+    select shift_id into v from department_schedules
+      where department_id = v_dept and p_date between start_date and coalesce(end_date, 'infinity'::date)
+      order by start_date desc nulls last, id desc limit 1;
+    if v is not null then return v; end if;
+  end if;
+
+  select (value #>> '{}')::bigint into v from app_config where key = 'global_shift_id';
+  return v;
+end $$;
+
+-- ─── the core: compute one employee's attendance for one shift-day ───────────
+create or replace function compute_attendance_for(p_emp bigint, p_date date)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  tz       text := attendance_tz();
+  dedup_s  int  := attendance_config_int('dedup_window_seconds', 60);
+  ot_mode  text := attendance_config_text('overtime_mode', 'after_scheduled_end');
+  ot_min   int  := attendance_config_int('overtime_min_minutes', 0);
+  v_shift  bigint;
+  v_tt     timetables%rowtype;
+  has_tt   boolean := false;
+  overnight boolean := false;
+  v_cnt    int;
+  v_first  timestamptz; v_last timestamptz;
+  v_first_m smallint;   v_last_m smallint;
+  v_sched_in timestamptz; v_sched_out timestamptz;
+  v_late int := 0; v_early int := 0; v_ot int := 0; v_worked int := 0; v_break int := 0;
+  v_status text;
+begin
+  -- resolve the applicable timetable for this weekday (if any)
+  v_shift := resolve_shift_id(p_emp, p_date);
+  if v_shift is not null then
+    select t.* into v_tt
+      from shift_details sd join timetables t on t.id = sd.timetable_id
+      where sd.shift_id = v_shift and sd.day_index = extract(dow from p_date)::int
+      limit 1;
+    has_tt := found;
+  end if;
+
+  -- gather biometric punches (mapped via device_user_map) + manual corrections,
+  -- then collapse repeats inside the dedup window
+  with src as (
+    select rp.punch_time as t, rp.verify_mode::smallint as m
+      from raw_punches rp
+      join device_user_map dum on dum.device_sn = rp.device_sn and dum.pin = rp.pin
+     where dum.employee_id = p_emp and (rp.punch_time at time zone tz)::date = p_date
+    union all
+    select ml.punch_time, null::smallint
+      from manual_logs ml
+     where ml.employee_id = p_emp and (ml.punch_time at time zone tz)::date = p_date
+  ),
+  ordered as (select t, m, lag(t) over (order by t) as prev from src),
+  deduped as (select t, m from ordered where prev is null or t - prev > make_interval(secs => dedup_s))
+  select count(*), min(t), max(t),
+         (array_agg(m order by t))[1], (array_agg(m order by t desc))[1]
+    into v_cnt, v_first, v_last, v_first_m, v_last_m
+    from deduped;
+
+  if has_tt then
+    overnight   := v_tt.is_overnight or v_tt.check_out <= v_tt.check_in;
+    v_sched_in  := ((p_date + v_tt.check_in)::timestamp) at time zone tz;
+    v_sched_out := ((p_date + v_tt.check_out + (case when overnight then interval '1 day' else interval '0' end))::timestamp) at time zone tz;
+  end if;
+
+  if coalesce(v_cnt, 0) = 0 then
+    -- no punches: holiday > approved leave > weekly-off (no timetable) > absent
+    if exists (select 1 from holidays where the_date = p_date) then
+      v_status := 'Holiday';
+    elsif exists (select 1 from leaves where employee_id = p_emp and status = 'approved'
+                    and p_date between start_date and coalesce(end_date, start_date)) then
+      v_status := 'Leave';
+    elsif not has_tt then
+      v_status := 'WeeklyOff';
+    else
+      v_status := 'Absent';
+    end if;
+  else
+    if has_tt then
+      v_late := greatest(0, ceil(extract(epoch from
+                  (v_first - (v_sched_in + make_interval(mins => coalesce(v_tt.late_grace_min, 0))))) / 60))::int;
+      if v_cnt >= 2 then
+        v_early := greatest(0, ceil(extract(epoch from
+                     ((v_sched_out - make_interval(mins => coalesce(v_tt.early_leave_grace_min, 0))) - v_last)) / 60))::int;
+        select coalesce(sum(extract(epoch from (end_time - start_time)) / 60) filter (where auto_deduct), 0)::int
+          into v_break from breaks where timetable_id = v_tt.id;
+        v_worked := greatest(0, floor(extract(epoch from (v_last - v_first)) / 60)::int - v_break);
+        if ot_mode = 'after_scheduled_end' then
+          v_ot := greatest(0, floor(extract(epoch from (v_last - v_sched_out)) / 60))::int;
+          if v_ot < ot_min then v_ot := 0; end if;
+        end if;
+      end if;
+    elsif v_cnt >= 2 then
+      v_worked := floor(extract(epoch from (v_last - v_first)) / 60)::int;  -- worked on a day off
+    end if;
+    v_status := case when v_cnt = 1 then 'Incomplete' else 'Present' end;
+  end if;
+
+  insert into attendance_daily as ad (
+    employee_id, work_date, first_in, last_out, scheduled_in, scheduled_out,
+    worked_minutes, late_minutes, early_leave_minutes, overtime_minutes, break_minutes,
+    first_in_method, last_out_method, status, computed_at)
+  values (
+    p_emp, p_date, v_first, v_last, v_sched_in, v_sched_out,
+    coalesce(v_worked,0), coalesce(v_late,0), coalesce(v_early,0), coalesce(v_ot,0), coalesce(v_break,0),
+    v_first_m, v_last_m, v_status, now())
+  on conflict (employee_id, work_date) do update set
+    first_in = excluded.first_in, last_out = excluded.last_out,
+    scheduled_in = excluded.scheduled_in, scheduled_out = excluded.scheduled_out,
+    worked_minutes = excluded.worked_minutes, late_minutes = excluded.late_minutes,
+    early_leave_minutes = excluded.early_leave_minutes, overtime_minutes = excluded.overtime_minutes,
+    break_minutes = excluded.break_minutes, first_in_method = excluded.first_in_method,
+    last_out_method = excluded.last_out_method, status = excluded.status, computed_at = now();
+end $$;
+
+-- ─── bulk / range recompute (spec §7: recompute on any change) ───────────────
+create or replace function recompute_attendance_for_date(p_date date)
+returns int language plpgsql security definer set search_path = public as $$
+declare n int := 0; r record;
+begin
+  for r in select id from employees where active loop
+    perform compute_attendance_for(r.id, p_date); n := n + 1;
+  end loop;
+  return n;
+end $$;
+
+create or replace function recompute_employee_range(p_emp bigint, p_from date, p_to date)
+returns void language plpgsql security definer set search_path = public as $$
+declare d date := p_from;
+begin
+  while d <= p_to loop perform compute_attendance_for(p_emp, d); d := d + 1; end loop;
+end $$;
+
+create or replace function recompute_attendance_range(p_from date, p_to date)
+returns void language plpgsql security definer set search_path = public as $$
+declare d date := p_from;
+begin
+  while d <= p_to loop perform recompute_attendance_for_date(d); d := d + 1; end loop;
+end $$;
+
+-- ─── triggers: recompute on any new punch / manual log / leave ───────────────
+create or replace function trg_recompute_on_punch()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_emp bigint;
+begin
+  select employee_id into v_emp from device_user_map where device_sn = new.device_sn and pin = new.pin;
+  if v_emp is not null then
+    perform compute_attendance_for(v_emp, (new.punch_time at time zone attendance_tz())::date);
+  end if;
+  return null;
+end $$;
+drop trigger if exists raw_punches_recompute on raw_punches;
+create trigger raw_punches_recompute after insert on raw_punches
+  for each row execute function trg_recompute_on_punch();
+
+create or replace function trg_recompute_on_manual()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.employee_id is not null then
+    perform compute_attendance_for(new.employee_id,
+      (coalesce(new.punch_time, now()) at time zone attendance_tz())::date);
+  end if;
+  return null;
+end $$;
+drop trigger if exists manual_logs_recompute on manual_logs;
+create trigger manual_logs_recompute after insert on manual_logs
+  for each row execute function trg_recompute_on_manual();
+
+create or replace function trg_recompute_on_leave()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.employee_id is not null then
+    perform recompute_employee_range(new.employee_id, new.start_date, coalesce(new.end_date, new.start_date));
+  end if;
+  return null;
+end $$;
+drop trigger if exists leaves_recompute on leaves;
+create trigger leaves_recompute after insert or update on leaves
+  for each row execute function trg_recompute_on_leave();
+
+-- ─── REPORT VIEWS (spec §7) ─────────────────────────────────────────────────
+-- security_invoker => the caller's RLS applies, so anon sees nothing and the
+-- service-role/authenticated dashboard sees the data. (Supabase best practice.)
+
+create or replace view v_report_daily with (security_invoker = true) as
+  select ad.work_date, e.id as employee_id, e.emp_code, e.first_name, e.last_name,
+         d.name as department, d.brand,
+         ad.first_in, ad.last_out, ad.scheduled_in, ad.scheduled_out,
+         ad.worked_minutes, ad.late_minutes, ad.early_leave_minutes,
+         ad.overtime_minutes, ad.break_minutes,
+         ad.first_in_method, ad.last_out_method, ad.status
+    from attendance_daily ad
+    join employees e on e.id = ad.employee_id
+    left join departments d on d.id = e.department_id;
+
+create or replace view v_total_time_card with (security_invoker = true) as
+  select ad.work_date, e.id as employee_id, e.emp_code,
+         (e.first_name || ' ' || coalesce(e.last_name, '')) as employee,
+         d.name as department, d.brand,
+         ad.first_in, ad.last_out,
+         case ad.first_in_method when 15 then 'face' when 1 then 'fingerprint' end as in_method,
+         case ad.last_out_method when 15 then 'face' when 1 then 'fingerprint' end as out_method,
+         ad.worked_minutes, round(ad.worked_minutes / 60.0, 2) as worked_hours,
+         ad.late_minutes, ad.early_leave_minutes, ad.overtime_minutes, ad.break_minutes, ad.status
+    from attendance_daily ad
+    join employees e on e.id = ad.employee_id
+    left join departments d on d.id = e.department_id;
+
+create or replace view v_report_weekly with (security_invoker = true) as
+  select e.id as employee_id, e.emp_code,
+         (e.first_name || ' ' || coalesce(e.last_name, '')) as employee, d.name as department, d.brand,
+         date_trunc('week', ad.work_date)::date as week_start,
+         count(*) filter (where ad.status = 'Present')    as present_days,
+         count(*) filter (where ad.status = 'Absent')     as absent_days,
+         count(*) filter (where ad.status = 'Leave')      as leave_days,
+         count(*) filter (where ad.status = 'Incomplete') as incomplete_days,
+         sum(ad.worked_minutes) as worked_minutes, sum(ad.late_minutes) as late_minutes,
+         sum(ad.overtime_minutes) as overtime_minutes
+    from attendance_daily ad
+    join employees e on e.id = ad.employee_id
+    left join departments d on d.id = e.department_id
+   group by 1, 2, 3, 4, 5, 6;
+
+create or replace view v_report_monthly with (security_invoker = true) as
+  select e.id as employee_id, e.emp_code,
+         (e.first_name || ' ' || coalesce(e.last_name, '')) as employee, d.name as department, d.brand,
+         to_char(ad.work_date, 'YYYY-MM') as month,
+         count(*) filter (where ad.status = 'Present')    as present_days,
+         count(*) filter (where ad.status = 'Absent')     as absent_days,
+         count(*) filter (where ad.status = 'Leave')      as leave_days,
+         count(*) filter (where ad.status = 'Incomplete') as incomplete_days,
+         sum(ad.worked_minutes) as worked_minutes, sum(ad.late_minutes) as late_minutes,
+         sum(ad.overtime_minutes) as overtime_minutes
+    from attendance_daily ad
+    join employees e on e.id = ad.employee_id
+    left join departments d on d.id = e.department_id
+   group by 1, 2, 3, 4, 5, 6;
+
+create or replace view v_live_punches with (security_invoker = true) as
+  select rp.id, rp.punch_time, rp.device_sn, rp.pin, rp.verify_mode,
+         case rp.verify_mode when 15 then 'face' when 1 then 'fingerprint' else 'other' end as method,
+         dum.employee_id, e.emp_code,
+         (e.first_name || ' ' || coalesce(e.last_name, '')) as employee
+    from raw_punches rp
+    left join device_user_map dum on dum.device_sn = rp.device_sn and dum.pin = rp.pin
+    left join employees e on e.id = dum.employee_id
+   order by rp.punch_time desc;
+
+create or replace view v_unknown_pins with (security_invoker = true) as
+  select rp.device_sn, rp.pin, count(*) as punches,
+         min(rp.punch_time) as first_seen, max(rp.punch_time) as last_seen
+    from raw_punches rp
+    left join device_user_map dum on dum.device_sn = rp.device_sn and dum.pin = rp.pin
+   where dum.employee_id is null
+   group by 1, 2;
+
+create or replace view v_device_health with (security_invoker = true) as
+  select sn, name, ip, firmware, last_seen,
+         extract(epoch from (now() - last_seen))::int as seconds_since_seen,
+         (last_seen is not null and now() - last_seen < interval '2 minutes') as online
+    from devices;
+
+grant select on v_report_daily, v_total_time_card, v_report_weekly, v_report_monthly,
+                v_live_punches, v_unknown_pins, v_device_health to authenticated;

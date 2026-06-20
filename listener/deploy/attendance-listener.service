@@ -3,7 +3,7 @@
 # Install:
 #   sudo useradd --system --no-create-home attendance   # or reuse an existing user
 #   sudo mkdir -p /opt/attendance-listener
-#   sudo cp -r . /opt/attendance-listener && cd /opt/attendance-listener
+#   sudo cp -r listener/. /opt/attendance-listener && cd /opt/attendance-listener
 #   sudo -u attendance cp .env.example .env && sudo -u attendance $EDITOR .env
 #   sudo -u attendance npm ci --omit=dev
 #   sudo cp deploy/attendance-listener.service /etc/systemd/system/

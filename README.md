@@ -1,126 +1,57 @@
-# Attendance OS — ADMS Listener (Stage 1)
+# Attendance OS
 
-Always-on LAN listener that captures biometric punches pushed by a **ZKTeco
-SenseFace 2A** over the ADMS protocol and forwards them to **Supabase**. This is
-Stage 1 (§13.1) of the [build spec](#how-this-maps-to-the-spec) — the capture
-spine that everything else (compute, reports, dashboard) reads from.
+Self-hosted biometric attendance + door system for a **ZKTeco SenseFace 2A**,
+replacing ZKBio Time. Protocol behaviour is hardware-confirmed on firmware
+`ZAM70-NF24HA-Ver3.3.12`.
 
 ```
-ZKTeco SenseFace 2A ──ADMS push (HTTP, LAN)──▶ this listener ──HTTPS──▶ Supabase ◀── React dashboard (later stage)
-   192.168.1.201                                :8081                  raw_punches
+ZKTeco SenseFace 2A ──ADMS push (HTTP, LAN)──▶ listener ──HTTPS──▶ Supabase ◀── dashboard
+   face / fingerprint                          (Node/Express)      Postgres        (React/Vite)
+   (cards open gate only,                      :8081              raw_punches →    reports, admin
+    never counted)                                                attendance_daily
 ```
 
-The protocol behaviour here is **hardware-confirmed** on firmware
-`ZAM70-NF24HA-Ver3.3.12` (spec §0). Every record on the `ATTLOG` feed is a face
-(`verify_mode=15`) or fingerprint (`verify_mode=1`) punch; NFC cards never reach
-this feed, so buddy-punching by card is impossible by design.
+**Why it's robust:** punches are immutable and append-only; the listener only
+acks the device after durable storage (with an on-disk buffer for Supabase
+outages); cards never reach the attendance feed, so buddy-punching is impossible
+by design; and check-in/out are derived by time (the device sends no direction).
 
-## What's implemented
+## Repository layout
 
-- **Handshake** — the confirmed `GET OPTION FROM:` reply (§3.2), realtime per-punch upload, Pakistan time.
-- **ATTLOG capture** — tolerant tab/space parser (§3.3); punch times normalized to an unambiguous instant.
-- **Durable local buffer + drain worker** — if Supabase is down, punches are spooled to disk **before** the device is acked, then retried until they land. This is the Stage-2 gate: **no lost punches, zero duplicates.**
-- **Dedup** — idempotent upsert on `raw_punches (device_sn, pin, punch_time)`.
-- **SN guard** — only the configured device's records are accepted (§5/§11).
-- **Heartbeat / INFO** — updates `devices.last_seen` + `firmware` (§3.5), best-effort.
-- **`/healthz`** — JSON health (buffered-punch count) for the operator/dashboard.
-- **Keep-alive** — pm2 and systemd units (§5).
-
-> **Not in this stage:** the Supabase schema (§6, Stage 3), attendance compute &
-> reports (§7), and the dashboard (§8). OPERLOG/card parsing is Phase 2 (§9);
-> server→device commands are Phase 3 (§3.6). Those endpoints currently ack and
-> no-op, exactly as the spec sequences them.
-
-## Quick start
-
-```bash
-cp .env.example .env          # fill in SUPABASE_URL + SUPABASE_SERVICE_KEY
-npm install                   # express + @supabase/supabase-js
-npm start                     # listener on :8081
-```
-
-In another terminal, simulate the device end-to-end (no hardware needed):
-
-```bash
-npm run simulate              # handshake + a face & fingerprint punch + heartbeat
-curl localhost:8081/healthz   # {"ok":true,...,"buffered_punches":0}
-```
-
-## Configuration (`.env`)
-
-| Var | Default | Notes |
+| Path | What | README |
 |---|---|---|
-| `DEVICE_SN` | `NYU7253801246` | Listener accepts **only** this SN. |
-| `SUPABASE_URL` | — | Required. |
-| `SUPABASE_SERVICE_KEY` | — | Required. **Service-role key, server-side only.** |
-| `PORT` / `BIND_ADDR` | `8081` / `0.0.0.0` | Bind to the LAN interface in production. |
-| `DEVICE_TZ_OFFSET` | `+05:00` | Device-local offset (TimeZone=5 → Pakistan). |
-| `BUFFER_DIR` | `.buffer` | Durable spool location. |
-| `DRAIN_INTERVAL_MS` | `15000` | How often the drain worker retries. |
+| [`listener/`](listener/) | Always-on LAN service that captures ADMS punches → Supabase. Durable buffer + dedup. | [listener/README.md](listener/README.md) |
+| [`supabase/`](supabase/) | Schema, RLS, immutability, attendance compute (functions + triggers), report views. | [supabase/README.md](supabase/README.md) |
+| [`dashboard/`](dashboard/) | React/Vite admin UI: live feed, employees/PINs, shifts, schedules, reports, corrections, leave/holidays, help. | [dashboard/README.md](dashboard/README.md) |
 
-## Tests
+## Build status (per spec §13)
 
-```bash
-npm run test:core   # parser + buffer/outage logic — NO install needed (pure Node)
-npm test            # also runs route tests (needs `npm install` for express)
-```
+| Stage | Status |
+|---|---|
+| 1. Listener (handshake, ATTLOG parse, dedup, durable buffer + drain) | ✅ built, **19 tests pass**, live smoke-tested |
+| 2. Schema (§6) + RLS + immutability + seed | ✅ built, **validated on Postgres 16** |
+| 3. Compute (§7): shift resolution, attendance fn, recompute triggers, pg_cron, report views | ✅ built, validated across Present/Incomplete/Holiday/Absent/Leave |
+| 4. Dashboard (§8) | ✅ built, **production build passes** |
+| 5. Phase 2 door-access log (§9) / Phase 3 push-to-device (§3.6) | ⏳ deferred (endpoints stubbed) |
 
-`test/buffer.test.js` is the **Stage-2 gate**: it simulates a Supabase outage,
-proves punches are held and later drained, that retries never create duplicates,
-that punches arriving *during* an outage aren't lost, and that an interrupted
-drain is recovered on restart.
+## End-to-end setup
 
-## How the durable buffer works
+1. **Database** — apply `supabase/migrations/*` (Supabase CLI `db push` or the SQL editor). Optionally `seed.sql` for a test employee on PIN 2.
+2. **Listener** — on the office LAN machine: `cd listener && cp .env.example .env` (fill Supabase URL + **service-role** key), `npm install`, `npm start` (or pm2/systemd). The device already targets `192.168.1.202:8081`.
+3. **Dashboard** — `cd dashboard && cp .env.example .env` (Supabase URL + **anon** key), `npm install`, `npm run dev` (or `npm run build`). Create an admin user in Supabase Auth.
 
-1. A punch arrives → try `insertPunches` (Supabase).
-2. On failure → append it to `.buffer/pending.jsonl` (synchronous, durable) → **then** ack `OK`. If even the spool write fails, the device is **not** acked (HTTP 500) so it resends.
-3. The drain worker periodically **atomically renames** the spool aside, tries to flush it, and on failure re-queues it. New punches keep landing in a fresh spool meanwhile.
-4. A crash mid-flush leaves a `*.processing` file; it's merged back on the next boot. Retried rows are idempotent via the unique key.
-
-## Deploy (keep-alive)
-
-**pm2:**
-```bash
-pm2 start ecosystem.config.js && pm2 startup && pm2 save
-```
-
-**systemd:** see the header of [`deploy/attendance-listener.service`](deploy/attendance-listener.service).
-
-Give the agent machine a static IP `192.168.1.202` (or a DHCP reservation) on
-SSID `Haseebmadeit` so the device's configured target stays valid (§12). The
-device already points at `192.168.1.202:8081` — no device change needed.
-
-## Project layout
-
-```
-src/
-  server.js   entry: wires everything, starts HTTP + drain worker, clean shutdown
-  app.js      express app (routes, SN guard, ATTLOG normalize, ack-after-storage)
-  parser.js   parseAttlog / toTimestamptz / parseInfo  (confirmed formats)
-  store.js    supabase sink: insertPunches (idempotent), updateDeviceStatus
-  buffer.js   DurableBuffer: spool + drain + crash recovery
-  config.js   env load/validate
-  log.js      timestamped logger
-test/         parser, buffer (Stage-2 gate), route tests
-tools/        simulate-device.js  (replay the device exchange)
-deploy/       systemd unit;  ecosystem.config.js (pm2)
-```
+Verify capture without the hardware: `cd listener && npm run simulate`.
 
 ## Security (§11)
 
-ADMS is **plain HTTP, unauthenticated**. Keep device + listener on a trusted/
-segmented LAN, bind to the LAN interface, validate `SN`, and **never expose port
-8081 to the internet**. The service-role key lives only in the agent's env; the
-dashboard (later stage) uses the anon key + RLS.
+ADMS is plain, unauthenticated HTTP → keep the device + listener on a trusted/
+segmented LAN, bind to the LAN interface, validate `SN`, never expose port 8081.
+The **service-role key lives only in the listener's env**; the browser uses the
+**anon key + RLS**. `raw_punches` is append-only (DB-enforced).
 
-## How this maps to the spec
+## The four confirmed facts that drive everything
 
-| Spec | Here |
-|---|---|
-| §3.2 handshake | `app.js` `HANDSHAKE` |
-| §3.3 ATTLOG format | `parser.js` `parseAttlog` + tests |
-| §3.5 heartbeat/INFO | `parser.js` `parseInfo`, `store.updateDeviceStatus` |
-| §5 listener + buffer | `app.js`, `buffer.js` |
-| §5 dedup key | `store.insertPunches` upsert `onConflict` |
-| §13.1 Stage-2 gate | `test/buffer.test.js` |
-| Appendix B gotchas | Express 5 `/{*splat}`, raw body, ack-after-storage, SN guard |
+1. Feed = **ATTLOG** (plain text, tab-separated); every row is a real attendance punch.
+2. **Cards never appear** in ATTLOG — exclusion is hardware-enforced.
+3. **Status is always `255`** (no in/out) → derive in/out by time.
+4. **VerifyMode `15` = face, `1` = fingerprint** (stored for reporting only).
