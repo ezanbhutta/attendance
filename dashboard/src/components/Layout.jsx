@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
+import { IS_DESKTOP } from '../lib/supabase';
+import SyncButton from './SyncButton.jsx';
 
 const NAV = [
   ['/', '▦', 'Overview', true],
@@ -10,6 +12,7 @@ const NAV = [
   ['/reports', '📊', 'Reports'],
   ['/corrections', '✎', 'Corrections'],
   ['/calendar', '🌴', 'Leave & Holidays'],
+  ...(IS_DESKTOP ? [['/settings', '⚙', 'Settings']] : []),
   ['/help', '❔', 'Help'],
 ];
 
@@ -31,6 +34,7 @@ export default function Layout() {
         <header className="topbar">
           <strong>Self-hosted biometric attendance</strong>
           <div className="row" style={{ alignItems: 'center' }}>
+            {IS_DESKTOP && <SyncButton />}
             <span className="muted" style={{ fontSize: '.85rem' }}>{user?.email}</span>
             <button className="btn sm" onClick={signOut}>Sign out</button>
           </div>

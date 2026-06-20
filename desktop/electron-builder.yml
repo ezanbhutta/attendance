@@ -1,0 +1,48 @@
+appId: com.attendanceos.desktop
+productName: Attendance OS
+copyright: Attendance OS
+
+directories:
+  output: release
+  buildResources: build
+
+# What goes inside the app bundle (asar).
+files:
+  - src/**/*
+  - renderer/**/*
+  - build/icon.png
+  - package.json
+
+# The proven push "catcher" (the standalone listener, with its prod deps) is
+# shipped alongside so the app can fork it as the optional background backup.
+extraResources:
+  - from: ../listener
+    to: listener
+    filter:
+      - '**/*'
+      - '!**/.buffer/**'
+      - '!**/test/**'
+      - '!**/*.md'
+
+asar: true
+
+# Auto-update source: GitHub Releases of this repo (electron-updater reads here).
+publish:
+  provider: github
+  owner: ezanbhutta
+  repo: attendance
+
+mac:
+  category: public.app-category.business
+  target: [dmg, zip]
+  icon: build/icon.png
+win:
+  target: [nsis]
+  icon: build/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  target: [AppImage]
+  category: Office
+  icon: build/icon.png

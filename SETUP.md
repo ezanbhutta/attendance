@@ -1,7 +1,15 @@
 # Setup Guide — what *you* need to do
 
-Plain steps to get Attendance OS live. No prior experience needed. ~30–45 minutes.
-There are three parts: **1) Database**, **2) Listener**, **3) Dashboard**.
+Plain steps to get Attendance OS live. No prior experience needed.
+
+> **🖥️ Easiest path — the desktop app.** One program you install, open, and it
+> fetches punches from the device and shows reports. See
+> **[desktop/README.md](desktop/README.md)**. You still do **Part 1 (Database)**
+> below once; then, instead of Parts 2–3, you just open the app and paste your
+> keys into its **Settings** screen.
+>
+> Parts 2 & 3 below are the **manual / advanced** way (run the catcher and the
+> website separately) — use them only if you'd rather not use the app.
 
 ## Before you start — you need
 

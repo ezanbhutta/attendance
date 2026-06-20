@@ -2,6 +2,8 @@ node_modules/
 .env
 .buffer/
 dist/
+desktop/renderer/
+desktop/release/
 *.log
 npm-debug.log*
 .DS_Store

@@ -1,0 +1,46 @@
+name: Build desktop app
+
+# Builds the Mac / Windows / Linux installers and publishes them to a GitHub
+# Release. The app then auto-updates from these releases (electron-updater).
+#
+#   Trigger: push a tag like v1.0.0   ->   git tag v1.0.0 && git push --tags
+#   Or run manually from the Actions tab (workflow_dispatch).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to publish the release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install listener deps (shipped as the push backup)
+        working-directory: listener
+        run: npm ci --omit=dev
+
+      - name: Install dashboard deps
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Install desktop deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build renderer + package + publish
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist -- --publish always
