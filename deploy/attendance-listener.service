@@ -1,0 +1,35 @@
+# systemd unit for the ADMS listener (spec §5 keep-alive, Linux).
+#
+# Install:
+#   sudo useradd --system --no-create-home attendance   # or reuse an existing user
+#   sudo mkdir -p /opt/attendance-listener
+#   sudo cp -r . /opt/attendance-listener && cd /opt/attendance-listener
+#   sudo -u attendance cp .env.example .env && sudo -u attendance $EDITOR .env
+#   sudo -u attendance npm ci --omit=dev
+#   sudo cp deploy/attendance-listener.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now attendance-listener
+#   journalctl -u attendance-listener -f
+
+[Unit]
+Description=Attendance OS ADMS Listener (ZKTeco SenseFace 2A -> Supabase)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=attendance
+WorkingDirectory=/opt/attendance-listener
+EnvironmentFile=-/opt/attendance-listener/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/attendance-listener/.buffer
+
+[Install]
+WantedBy=multi-user.target

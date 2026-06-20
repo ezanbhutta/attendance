@@ -1,0 +1,22 @@
+{
+  "name": "attendance-listener",
+  "version": "1.0.0",
+  "description": "ADMS push listener for ZKTeco SenseFace 2A -> Supabase (Attendance OS, Stage 1)",
+  "license": "MIT",
+  "private": true,
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "test": "node --test test/parser.test.js test/buffer.test.js test/app.test.js",
+    "test:core": "node --test test/parser.test.js test/buffer.test.js",
+    "simulate": "node tools/simulate-device.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "express": "^5.0.0"
+  }
+}
