@@ -36,7 +36,9 @@ by design; and check-in/out are derived by time (the device sends no direction).
 
 ## End-to-end setup
 
-1. **Database** — apply `supabase/migrations/*` (Supabase CLI `db push` or the SQL editor). Optionally `seed.sql` for a test employee on PIN 2.
+> **New here?** Follow **[SETUP.md](SETUP.md)** — plain, click-by-click steps (~30–45 min). The summary below is for those who already know Supabase + Node.
+
+1. **Database** — apply `supabase/setup.sql` (one paste in the SQL editor) or `supabase/migrations/*` via the CLI. Optionally `seed.sql` for a test employee on PIN 2.
 2. **Listener** — on the office LAN machine: `cd listener && cp .env.example .env` (fill Supabase URL + **service-role** key), `npm install`, `npm start` (or pm2/systemd). The device already targets `192.168.1.202:8081`.
 3. **Dashboard** — `cd dashboard && cp .env.example .env` (Supabase URL + **anon** key), `npm install`, `npm run dev` (or `npm run build`). Create an admin user in Supabase Auth.
 
