@@ -5,6 +5,7 @@ import Login from './components/Login.jsx';
 import Layout from './components/Layout.jsx';
 import Settings from './pages/Settings.jsx';
 import Overview from './pages/Overview.jsx';
+import CeoView from './pages/CeoView.jsx';
 import Employees from './pages/Employees.jsx';
 import Org from './pages/Org.jsx';
 import Shifts from './pages/Shifts.jsx';
@@ -26,6 +27,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Overview />} />
+        <Route path="ceo" element={<CeoView />} />
         {IS_DESKTOP && <Route path="settings" element={<Settings />} />}
         <Route path="employees" element={<Employees />} />
         <Route path="org" element={<Org />} />

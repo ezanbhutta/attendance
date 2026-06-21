@@ -7,6 +7,7 @@ import HMLogo from './HMLogo.jsx';
 
 const NAV = [
   ['/', '▦', 'Overview', true],
+  ['/ceo', '📈', 'CEO View'],
   ['/employees', '👤', 'Employees'],
   ['/org', '🏢', 'Departments'],
   ['/shifts', '🕘', 'Shifts'],

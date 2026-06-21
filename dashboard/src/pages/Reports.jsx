@@ -1,101 +1,149 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
-import { fmtTime, minutesToHM, todayISO, daysAgoISO } from '../lib/format';
+import { fmtTime, minutesToHM, fmtDate, todayISO, daysAgoISO } from '../lib/format';
 import { downloadCSV } from '../lib/csv';
 import { Card, Field, Table, Badge, ErrorBanner } from '../components/ui.jsx';
+import PrintHeader from '../components/PrintHeader.jsx';
 
-const nameCol = { key: 'employee', label: 'Employee', render: (r) => r.employee ?? `${r.first_name} ${r.last_name ?? ''}`.trim() };
-const status = { key: 'status', label: 'Status', render: (r) => <Badge value={r.status} />, csv: (r) => r.status };
+const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'WeeklyOff'];
+const VIEWS = [
+  ['detailed', 'Day by day'],
+  ['employee', 'By employee'],
+  ['department', 'By department'],
+  ['shift', 'By shift'],
+];
 
-const TABS = {
-  timecard: {
-    label: 'Total Time Card', view: 'v_total_time_card', dateCol: 'work_date',
-    columns: [
-      { key: 'work_date', label: 'Date' }, { key: 'emp_code', label: 'Code' }, nameCol,
-      { key: 'department', label: 'Dept' },
-      { key: 'first_in', label: 'In', render: (r) => fmtTime(r.first_in), csv: (r) => fmtTime(r.first_in) },
-      { key: 'last_out', label: 'Out', render: (r) => fmtTime(r.last_out), csv: (r) => fmtTime(r.last_out) },
-      { key: 'in_method', label: 'In via', render: (r) => <Badge value={r.in_method} kind={r.in_method} />, csv: (r) => r.in_method },
-      { key: 'out_method', label: 'Out via', render: (r) => <Badge value={r.out_method} kind={r.out_method} />, csv: (r) => r.out_method },
-      { key: 'worked_hours', label: 'Hours', num: true },
-      { key: 'late_minutes', label: 'Late', num: true }, { key: 'overtime_minutes', label: 'OT', num: true },
-      status,
-    ],
-  },
-  daily: {
-    label: 'Daily', view: 'v_report_daily', dateCol: 'work_date',
-    columns: [
-      { key: 'work_date', label: 'Date' }, { key: 'emp_code', label: 'Code' }, nameCol,
-      { key: 'department', label: 'Dept' },
-      { key: 'first_in', label: 'In', render: (r) => fmtTime(r.first_in), csv: (r) => fmtTime(r.first_in) },
-      { key: 'last_out', label: 'Out', render: (r) => fmtTime(r.last_out), csv: (r) => fmtTime(r.last_out) },
-      { key: 'late_minutes', label: 'Late', num: true, render: (r) => minutesToHM(r.late_minutes), csv: (r) => r.late_minutes },
-      { key: 'worked_minutes', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked_minutes), csv: (r) => r.worked_minutes },
-      { key: 'overtime_minutes', label: 'OT', num: true, render: (r) => minutesToHM(r.overtime_minutes), csv: (r) => r.overtime_minutes },
-      status,
-    ],
-  },
-  weekly: {
-    label: 'Weekly', view: 'v_report_weekly', dateCol: 'week_start',
-    columns: [
-      { key: 'week_start', label: 'Week of' }, { key: 'emp_code', label: 'Code' }, nameCol, { key: 'department', label: 'Dept' },
-      { key: 'present_days', label: 'Present', num: true }, { key: 'absent_days', label: 'Absent', num: true },
-      { key: 'leave_days', label: 'Leave', num: true },
-      { key: 'worked_minutes', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked_minutes), csv: (r) => r.worked_minutes },
-      { key: 'late_minutes', label: 'Late', num: true }, { key: 'overtime_minutes', label: 'OT', num: true },
-    ],
-  },
-  monthly: {
-    label: 'Monthly', view: 'v_report_monthly', dateCol: 'month', isMonth: true,
-    columns: [
-      { key: 'month', label: 'Month' }, { key: 'emp_code', label: 'Code' }, nameCol, { key: 'department', label: 'Dept' },
-      { key: 'present_days', label: 'Present', num: true }, { key: 'absent_days', label: 'Absent', num: true },
-      { key: 'leave_days', label: 'Leave', num: true },
-      { key: 'worked_minutes', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked_minutes), csv: (r) => r.worked_minutes },
-      { key: 'late_minutes', label: 'Late', num: true }, { key: 'overtime_minutes', label: 'OT', num: true },
-    ],
-  },
-};
+const empName = (r) => r.employee?.trim() || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim();
 
 export default function Reports() {
-  const [tab, setTab] = useState('timecard');
+  const [view, setView] = useState('detailed');
   const [from, setFrom] = useState(daysAgoISO(30));
   const [to, setTo] = useState(todayISO());
   const [dept, setDept] = useState('');
-  const [brand, setBrand] = useState('');
-  const cfg = TABS[tab];
+  const [shift, setShift] = useState('');
+  const [emp, setEmp] = useState('');
+  const [stat, setStat] = useState('');
 
-  const depts = useQuery(() => supabase.from('departments').select('name,brand').order('name'), []);
-  const brands = useMemo(() => [...new Set((depts.data ?? []).map((d) => d.brand).filter(Boolean))], [depts.data]);
+  const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
+  const shifts = useQuery(() => supabase.from('shifts').select('name').order('name'), []);
+  const emps = useQuery(() =>
+    supabase.from('employees').select('id,emp_code,first_name,last_name,track_attendance,shift:shifts(name)').order('emp_code'), []);
 
-  const report = useQuery(() => {
-    let q = supabase.from(cfg.view).select('*');
-    if (cfg.isMonth) q = q.gte('month', from.slice(0, 7)).lte('month', to.slice(0, 7));
-    else q = q.gte(cfg.dateCol, from).lte(cfg.dateCol, to);
-    if (dept) q = q.eq('department', dept);
-    if (brand) q = q.eq('brand', brand);
-    return q.order(cfg.dateCol, { ascending: false }).order('emp_code');
-  }, [tab, from, to, dept, brand]);
+  const report = useQuery(() =>
+    supabase.from('v_report_daily').select('*')
+      .gte('work_date', from).lte('work_date', to)
+      .order('work_date', { ascending: false }).order('emp_code'), [from, to]);
+
+  const shiftBy = useMemo(() => {
+    const m = {};
+    (emps.data ?? []).forEach((e) => { m[e.id] = e.shift?.name ?? null; });
+    return m;
+  }, [emps.data]);
+
+  // Attach shift, then apply all filters. "Late" status = any positive late mins.
+  const rows = useMemo(() => (report.data ?? [])
+    .map((r) => ({ ...r, shift: shiftBy[r.employee_id] ?? null }))
+    .filter((r) => !dept || r.department === dept)
+    .filter((r) => !shift || r.shift === shift)
+    .filter((r) => !emp || String(r.employee_id) === String(emp))
+    .filter((r) => !stat || (stat === 'Late' ? (r.late_minutes ?? 0) > 0 : r.status === stat)),
+  [report.data, shiftBy, dept, shift, emp, stat]);
+
+  const totals = useMemo(() => rows.reduce((a, r) => {
+    if (r.status === 'Present') a.present++;
+    else if (r.status === 'Absent') a.absent++;
+    else if (r.status === 'Leave') a.leave++;
+    if ((r.late_minutes ?? 0) > 0) a.late++;
+    a.worked += r.worked_minutes ?? 0;
+    a.ot += r.overtime_minutes ?? 0;
+    return a;
+  }, { present: 0, absent: 0, leave: 0, late: 0, worked: 0, ot: 0 }), [rows]);
+
+  const grouped = useMemo(() => {
+    const keyFn = view === 'employee' ? (r) => r.employee_id
+      : view === 'department' ? (r) => r.department || '—'
+      : (r) => r.shift || 'No shift';
+    const labelFn = view === 'employee' ? empName
+      : view === 'department' ? (r) => r.department || '—'
+      : (r) => r.shift || 'No shift';
+    const g = new Map();
+    for (const r of rows) {
+      const k = keyFn(r);
+      if (!g.has(k)) g.set(k, { label: labelFn(r), code: r.emp_code, present: 0, absent: 0, leave: 0, incomplete: 0, late: 0, lateMin: 0, worked: 0, ot: 0 });
+      const x = g.get(k);
+      if (r.status === 'Present') x.present++;
+      else if (r.status === 'Absent') x.absent++;
+      else if (r.status === 'Leave') x.leave++;
+      else if (r.status === 'Incomplete') x.incomplete++;
+      if ((r.late_minutes ?? 0) > 0) x.late++;
+      x.lateMin += r.late_minutes ?? 0;
+      x.worked += r.worked_minutes ?? 0;
+      x.ot += r.overtime_minutes ?? 0;
+    }
+    return [...g.values()].sort((a, b) => String(a.label).localeCompare(String(b.label)));
+  }, [rows, view]);
+
+  const detailedCols = [
+    { key: 'work_date', label: 'Date', render: (r) => fmtDate(r.work_date), csv: (r) => r.work_date },
+    { key: 'emp_code', label: 'PIN' },
+    { key: 'name', label: 'Name', render: empName, csv: empName },
+    { key: 'department', label: 'Department', render: (r) => r.department ?? '—' },
+    { key: 'shift', label: 'Shift', render: (r) => r.shift ?? '—' },
+    { key: 'first_in', label: 'In', render: (r) => fmtTime(r.first_in), csv: (r) => fmtTime(r.first_in) },
+    { key: 'last_out', label: 'Out', render: (r) => fmtTime(r.last_out), csv: (r) => fmtTime(r.last_out) },
+    { key: 'late_minutes', label: 'Late', num: true, render: (r) => minutesToHM(r.late_minutes), csv: (r) => r.late_minutes },
+    { key: 'worked_minutes', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked_minutes), csv: (r) => r.worked_minutes },
+    { key: 'overtime_minutes', label: 'OT', num: true, render: (r) => minutesToHM(r.overtime_minutes), csv: (r) => r.overtime_minutes },
+    { key: 'status', label: 'Status', render: (r) => <Badge value={r.status} />, csv: (r) => r.status },
+  ];
+  const groupCols = [
+    { key: 'label', label: view === 'employee' ? 'Employee' : view === 'department' ? 'Department' : 'Shift' },
+    { key: 'present', label: 'Present', num: true },
+    { key: 'absent', label: 'Absent', num: true },
+    { key: 'incomplete', label: 'Incomplete', num: true },
+    { key: 'leave', label: 'Leave', num: true },
+    { key: 'late', label: 'Late days', num: true },
+    { key: 'lateMin', label: 'Late', num: true, render: (r) => minutesToHM(r.lateMin), csv: (r) => r.lateMin },
+    { key: 'worked', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked), csv: (r) => r.worked },
+    { key: 'ot', label: 'Overtime', num: true, render: (r) => minutesToHM(r.ot), csv: (r) => r.ot },
+  ];
+
+  const isDetailed = view === 'detailed';
+  const cols = isDetailed ? detailedCols : groupCols;
+  const data = isDetailed ? rows : grouped;
+  const viewLabel = VIEWS.find(([k]) => k === view)?.[1];
 
   function exportCSV() {
-    const csvCols = cfg.columns.map((c) => ({ label: c.label, get: c.csv ?? ((r) => r[c.key]) }));
-    downloadCSV(`${tab}_${from}_${to}.csv`, report.data ?? [], csvCols);
+    const csvCols = cols.map((c) => ({ label: c.label, get: c.csv ?? ((r) => r[c.key]) }));
+    downloadCSV(`report_${view}_${from}_${to}.csv`, data, csvCols);
   }
+
+  const filterNote = [
+    dept && `Dept: ${dept}`, shift && `Shift: ${shift}`,
+    emp && `Employee: ${empName((emps.data ?? []).find((e) => String(e.id) === String(emp)) || {})}`,
+    stat && `Status: ${stat}`,
+  ].filter(Boolean).join(' · ');
 
   return (
     <>
+      <PrintHeader title={`Attendance Report — ${viewLabel}`}
+        subtitle={`${fmtDate(from)} to ${fmtDate(to)}${filterNote ? ` · ${filterNote}` : ''}`} />
+
       <div className="page-title">
-        <h1>Reports</h1>
+        <div>
+          <h1>Reports</h1>
+          <p className="page-intro">Pick a view and filters, then export a clean PDF or CSV. Gate-only people are never included.</p>
+        </div>
         <div className="inline-actions no-print">
-          <button className="btn" onClick={exportCSV} disabled={!report.data?.length}>⬇ CSV</button>
-          <button className="btn" onClick={() => window.print()} disabled={!report.data?.length}>🖶 Print / PDF</button>
+          <button className="btn" onClick={exportCSV} disabled={!data.length}>⬇ CSV</button>
+          <button className="btn primary" onClick={() => window.print()} disabled={!data.length}>🖶 PDF</button>
         </div>
       </div>
 
       <div className="tabs no-print">
-        {Object.entries(TABS).map(([k, v]) => (
-          <button key={k} className={k === tab ? 'active' : ''} onClick={() => setTab(k)}>{v.label}</button>
+        {VIEWS.map(([k, label]) => (
+          <button key={k} className={k === view ? 'active' : ''} onClick={() => setView(k)}>{label}</button>
         ))}
       </div>
 
@@ -109,19 +157,41 @@ export default function Reports() {
               {(depts.data ?? []).map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
           </Field>
-          <Field label="Brand">
-            <select value={brand} onChange={(e) => setBrand(e.target.value)}>
+          <Field label="Shift">
+            <select value={shift} onChange={(e) => setShift(e.target.value)}>
               <option value="">All</option>
-              {brands.map((b) => <option key={b} value={b}>{b}</option>)}
+              {(shifts.data ?? []).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Employee">
+            <select value={emp} onChange={(e) => setEmp(e.target.value)}>
+              <option value="">All</option>
+              {(emps.data ?? []).filter((e) => e.track_attendance).map((e) => (
+                <option key={e.id} value={e.id}>{e.emp_code} — {empName(e)}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Status">
+            <select value={stat} onChange={(e) => setStat(e.target.value)}>
+              <option value="">All</option>
+              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
         </div>
       </Card>
 
+      <div className="report-summary">
+        <div className="stat"><div className="label">Present</div><div className="value">{totals.present}</div></div>
+        <div className="stat"><div className="label">Absent</div><div className="value">{totals.absent}</div></div>
+        <div className="stat"><div className="label">Late</div><div className="value">{totals.late}</div></div>
+        <div className="stat"><div className="label">On leave</div><div className="value">{totals.leave}</div></div>
+        <div className="stat"><div className="label">Worked</div><div className="value">{minutesToHM(totals.worked)}</div></div>
+        <div className="stat"><div className="label">Overtime</div><div className="value">{minutesToHM(totals.ot)}</div></div>
+      </div>
+
       <ErrorBanner error={report.error} />
-      <Card title={`${cfg.label} — ${from} to ${to}`}>
-        <Table loading={report.loading} rows={report.data} columns={cfg.columns}
-          empty="No rows for this range/filter." />
+      <Card title={`${viewLabel} · ${fmtDate(from)} – ${fmtDate(to)}`}>
+        <Table loading={report.loading} rows={data} columns={cols} empty="No rows for this range / filter." />
       </Card>
     </>
   );

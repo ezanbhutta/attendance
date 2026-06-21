@@ -141,6 +141,23 @@ input.name-edit:focus { border-color: var(--primary); background: var(--surface)
 /* Subtle lift on stat cards */
 .stat { transition: box-shadow .15s ease, transform .15s ease; }
 .stat:hover { box-shadow: 0 1px 2px rgba(22,10,51,.04), 0 14px 30px rgba(22,10,51,.09); transform: translateY(-1px); }
+
+/* Report summary strip */
+.report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.report-summary .stat { padding: 13px 15px; }
+.report-summary .stat .value { font-size: 1.5rem; }
+
+/* CEO 7-day trend bars */
+.trend { display: flex; flex-direction: column; gap: 10px; }
+.trend-row { display: grid; grid-template-columns: 120px 1fr auto; align-items: center; gap: 12px; }
+.trend-day { font-size: .82rem; color: var(--text-muted); }
+.trend-bar { display: flex; height: 14px; background: var(--surface-2); border-radius: 7px; overflow: hidden; }
+.trend-bar .bar-present { background: var(--primary); }
+.trend-bar .bar-absent { background: var(--danger); opacity: .85; }
+.trend-num { font-size: .78rem; color: var(--text-dim); font-family: var(--font-mono); white-space: nowrap; }
+
+/* Print letterhead (hidden on screen, shown in PDF) */
+.print-header { display: none; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-weight: 600; transition: background .12s, filter .12s, border-color .12s; }
 .btn:hover { background: var(--surface-2); border-color: var(--border-hi); }
 .btn.primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); box-shadow: 0 6px 16px rgba(114, 41, 255, .24); }
@@ -226,10 +243,27 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-fam
 
 /* ─── Print (Save-as-PDF report export) ────────────────────────────────────── */
 @media print {
-  .sidebar, .topbar, .no-print { display: none !important; }
+  .sidebar, .topbar, .no-print, .scrim { display: none !important; }
   .shell { display: block; }
   .content { max-width: none; padding: 0; }
-  .card { box-shadow: none; border-color: #ccc; }
-  th { position: static; }
+  .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; margin-bottom: 12px; }
+  .card-head { padding: 8px 12px; }
+  th { position: static; background: #f4f2fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table { font-size: 11px; }
+  td, th { padding: 7px 10px; }
   body { background: #fff; }
+  .page-title { margin-bottom: 8px; }
+  .report-summary { display: grid !important; grid-template-columns: repeat(6, 1fr) !important; gap: 8px; }
+  .report-summary .stat { padding: 8px; border: 1px solid #ddd; }
+  .report-summary .stat .value { font-size: 1.05rem; }
+  .badge, .trend-bar, .trend-bar span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 2px solid #7229FF; }
+  .print-header .ph-brand { display: flex; gap: 8px; align-items: center; }
+  .print-header .ph-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.05rem; color: #160A33; }
+  .print-header .ph-sub { font-size: .5rem; letter-spacing: .2em; text-transform: uppercase; color: #7229FF; font-weight: 700; }
+  .print-header .ph-title { text-align: center; }
+  .print-header .ph-h { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.15rem; color: #160A33; }
+  .print-header .ph-s { font-size: .78rem; color: #534A78; }
+  .print-header .ph-date { font-size: .68rem; color: #8B82A8; text-align: right; }
+  @page { margin: 14mm; }
 }
