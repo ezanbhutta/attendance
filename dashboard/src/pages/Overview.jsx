@@ -19,6 +19,7 @@ export default function Overview() {
   const health = useQuery(() => supabase.from('v_device_health').select('*'), []);
   const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(60), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*'), []);
+  const roster = useQuery(() => supabase.from('employees').select('id,active'), []);
 
   // Realtime: refetch the moment a punch lands.
   useEffect(() => {
@@ -39,7 +40,10 @@ export default function Overview() {
   }, []);
 
   const now = Date.now();
-  const rows = daily.data ?? [];
+  // Archived (inactive) people must not appear in any live count or drill-down,
+  // even if an old attendance row lingers from before they were archived.
+  const inactive = new Set((roster.data ?? []).filter((e) => e.active === false).map((e) => e.id));
+  const rows = (daily.data ?? []).filter((r) => !inactive.has(r.employee_id));
   const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
   const fullName = (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || `PIN ${r.emp_code}`;
 
@@ -67,7 +71,7 @@ export default function Overview() {
       <div className="page-title">
         <div>
           <h1>Overview</h1>
-          <p className="page-intro">Today at a glance. The feed updates the moment someone scans — and absences only count once a shift has actually started.</p>
+          <p className="page-intro">Today at a glance. The feed updates the moment someone scans. Absences only count once a shift has started.</p>
         </div>
         <div className="page-tools">
           <span className="date-chip">{today}</span>
@@ -84,12 +88,12 @@ export default function Overview() {
 
       {unlinked.length > 0 && (
         <div className="callout warn">
-          <b>{unlinked.length} PIN{unlinked.length > 1 ? 's' : ''} scanned but not linked to anyone.</b> Link a PIN to a person on the Employees page — or ignore it if it isn’t a real user.
+          <b>{unlinked.length} PIN{unlinked.length > 1 ? 's' : ''} scanned but not linked to anyone.</b> Link a PIN to a person on the Employees page, or ignore it if it is not a real user.
           <div className="unlinked">
             {unlinked.map((u) => (
               <span className="pin" key={`${u.device_sn}-${u.pin}`}>
                 PIN <b>{u.pin}</b> · {u.punches} scan{u.punches > 1 ? 's' : ''} · <span className="when">last {fmtTime(u.last_seen)}</span>
-                <button className="pin-x" onClick={() => ignorePin(u.device_sn, u.pin)} title="Not a real user — stop showing this PIN">Ignore</button>
+                <button className="pin-x" onClick={() => ignorePin(u.device_sn, u.pin)} title="Not a real user. Stop showing this PIN.">Ignore</button>
               </span>
             ))}
           </div>
@@ -109,7 +113,7 @@ export default function Overview() {
         <Stat icon={UserX} tone="danger" label="Absent" value={absent.length}
           hint={upcoming.length ? `${upcoming.length} not due yet` : null}
           onClick={() => open('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
-          help="Scheduled today, their shift has already started, and still no scan — excluding weekly-off and approved leave. People whose shift hasn’t started yet are shown as “not due yet”, not absent." />
+          help="Scheduled today, their shift has started, and still no scan. Weekly off and approved leave are not counted. Anyone whose shift has not started yet shows as not due yet." />
       </div>
 
       <Card title="Device health" help="Your scanner and the catcher service. “Online” means a heartbeat arrived in the last 2 minutes."

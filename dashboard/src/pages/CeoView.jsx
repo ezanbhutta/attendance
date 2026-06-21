@@ -27,8 +27,9 @@ export default function CeoView() {
   const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
   const fullName = (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || `PIN ${r.emp_code}`;
 
+  const inactive = new Set((emps.data ?? []).filter((e) => e.active === false).map((e) => e.id));
   const counted = (emps.data ?? []).filter((e) => e.track_attendance && e.active !== false);
-  const rows = todayRows.data ?? [];
+  const rows = (todayRows.data ?? []).filter((r) => !inactive.has(r.employee_id));
   const present = rows.filter((r) => r.status === 'Present');
   const incomplete = rows.filter((r) => r.status === 'Incomplete');
   const absent = rows.filter((r) => r.status === 'Absent' && started(r));
