@@ -185,13 +185,10 @@ const F = {
     { id: 2, name: 'Evening 17 to 01', check_in: '17:00', check_out: '01:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false },
     { id: 3, name: 'Night 01 to 09',   check_in: '01:00', check_out: '09:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: true },
   ],
-  shift_details: [
-    { id: 1, shift_id: 1, day_index: 1, timetable_id: 1 },
-    { id: 2, shift_id: 1, day_index: 2, timetable_id: 1 },
-    { id: 3, shift_id: 1, day_index: 3, timetable_id: 1 },
-    { id: 4, shift_id: 1, day_index: 4, timetable_id: 1 },
-    { id: 5, shift_id: 1, day_index: 5, timetable_id: 1 },
-  ],
+  shift_details: [0, 1, 2, 3, 4, 5, 6].flatMap((d) => [
+    { id: 10 + d, shift_id: 1, day_index: d, timetable_id: 1 },   // General → General timetable
+    { id: 20 + d, shift_id: 2, day_index: d, timetable_id: 3 },   // Night → 01 to 09 (previous day)
+  ]),
   holidays: [{ id: 1, the_date: '2026-08-14', name: 'Independence Day', pay_multiplier: 2 }],
   leaves: [
     { id: 1, leave_type: 'annual', start_date: dateISO(1), end_date: dateISO(-1), status: 'approved', employee: { emp_code: '1050', first_name: 'Sana' } },

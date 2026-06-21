@@ -1,26 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { Card, Field, Table, ConfirmButton, ErrorBanner, InlineEdit } from '../components/ui.jsx';
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Shifts() {
   const tts = useQuery(() => supabase.from('timetables')
     .select('id,name,check_in,check_out,late_grace_min,early_leave_grace_min,next_day').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
+  const details = useQuery(() => supabase.from('shift_details').select('shift_id,day_index,timetable_id'), []);
   const [err, setErr] = useState(null);
   const [tt, setTt] = useState({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false });
   const [shiftName, setShiftName] = useState('');
-  const [selShift, setSelShift] = useState('');
-
-  useEffect(() => {
-    if (!selShift && shifts.data?.length) setSelShift(String(shifts.data[0].id));
-  }, [shifts.data, selShift]);
-
-  const details = useQuery(() =>
-    selShift ? supabase.from('shift_details').select('id,day_index,timetable_id').eq('shift_id', selShift)
-      : Promise.resolve({ data: [] }), [selShift]);
 
   async function addTt(e) {
     e.preventDefault(); setErr(null);
@@ -37,9 +27,9 @@ export default function Shifts() {
 
   async function addShift(e) {
     e.preventDefault(); setErr(null);
-    const { data, error } = await supabase.from('shifts').insert({ name: shiftName.trim() }).select('id').single();
+    const { error } = await supabase.from('shifts').insert({ name: shiftName.trim() });
     if (error) return setErr(error);
-    setShiftName(''); await shifts.refetch(); if (data) setSelShift(String(data.id));
+    setShiftName(''); shifts.refetch();
   }
   async function updShift(id, patch) {
     setErr(null);
@@ -47,17 +37,20 @@ export default function Shifts() {
     if (error) setErr(error); else shifts.refetch();
   }
 
-  const detailMap = {};
-  (details.data ?? []).forEach((d) => { detailMap[d.day_index] = d; });
+  // Each shift uses one timetable, applied every day. The off day is set per
+  // person on the Employees page (Weekly off), so there is no weekday grid here.
+  const shiftTt = {};
+  (details.data ?? []).forEach((d) => { if (shiftTt[d.shift_id] == null) shiftTt[d.shift_id] = d.timetable_id; });
 
-  async function setDay(day, timetable_id) {
+  async function setShiftTimetable(shiftId, timetableId) {
     setErr(null);
-    const existing = detailMap[day];
-    let res;
-    if (!timetable_id) res = existing ? await supabase.from('shift_details').delete().eq('id', existing.id) : {};
-    else if (existing) res = await supabase.from('shift_details').update({ timetable_id }).eq('id', existing.id);
-    else res = await supabase.from('shift_details').insert({ shift_id: selShift, day_index: day, timetable_id });
-    if (res.error) return setErr(res.error);
+    const del = await supabase.from('shift_details').delete().eq('shift_id', shiftId);
+    if (del.error) return setErr(del.error);
+    if (timetableId) {
+      const rows = [0, 1, 2, 3, 4, 5, 6].map((day_index) => ({ shift_id: shiftId, day_index, timetable_id: timetableId }));
+      const ins = await supabase.from('shift_details').insert(rows);
+      if (ins.error) return setErr(ins.error);
+    }
     details.refetch();
   }
 
@@ -66,7 +59,7 @@ export default function Shifts() {
       <div className="page-title">
         <div>
           <h1>Shifts &amp; Timetables</h1>
-          <p className="page-intro">Working hours and weekly patterns.</p>
+          <p className="page-intro">Working hours and shifts.</p>
         </div>
       </div>
       <ErrorBanner error={err} />
@@ -105,43 +98,24 @@ export default function Shifts() {
         />
       </Card>
 
-      <Card title="Shifts" help="A shift is a named weekly pattern, like General or Night. Below you map a timetable to each weekday, or leave a day off.">
+      <Card title="Shifts" help="A shift is a named set of hours, like General or Night. Give it one timetable here, then assign people to it on the Employees page. Each person picks their own weekly off day there.">
         <form onSubmit={addShift} className="row" style={{ marginBottom: 18 }}>
           <Field label="Name *"><input required value={shiftName} onChange={(e) => setShiftName(e.target.value)} placeholder="General" /></Field>
           <button className="btn primary">Add shift</button>
         </form>
         <Table
-          loading={shifts.loading} rows={shifts.data} empty="No shifts yet."
+          loading={shifts.loading || details.loading} rows={shifts.data} empty="No shifts yet."
           columns={[
             { key: 'name', label: 'Name', render: (r) => <InlineEdit value={r.name} onSave={(v) => updShift(r.id, { name: v })} /> },
-            { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={async () => { const { error } = await supabase.from('shifts').delete().eq('id', r.id); if (error) setErr(error); else { shifts.refetch(); if (String(r.id) === selShift) setSelShift(''); } }} /> },
+            { key: 'timetable', label: 'Timetable', sortable: false, render: (r) => (
+              <select className="compact" value={shiftTt[r.id] ?? ''} onChange={(e) => setShiftTimetable(r.id, e.target.value)}>
+                <option value="">Not set</option>
+                {(tts.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ) },
+            { key: 'act', label: '', sortable: false, render: (r) => <ConfirmButton onConfirm={async () => { const { error } = await supabase.from('shifts').delete().eq('id', r.id); if (error) setErr(error); else shifts.refetch(); }} /> },
           ]}
         />
-      </Card>
-
-      <Card title="Weekly timetable map" help="For the selected shift, choose which timetable applies on each weekday. “Off” means no work is expected that day (so the person isn’t marked absent)." actions={
-        <select value={selShift} onChange={(e) => setSelShift(e.target.value)}>
-          <option value="">Pick a shift…</option>
-          {(shifts.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      }>
-        {!selShift ? <div className="empty">Select a shift to assign a timetable to each weekday.</div> : (
-          <div className="table-wrap">
-            <table>
-              <thead><tr>{DAYS.map((d) => <th key={d}>{d}</th>)}</tr></thead>
-              <tbody><tr>
-                {DAYS.map((d, i) => (
-                  <td key={d}>
-                    <select value={detailMap[i]?.timetable_id ?? ''} onChange={(e) => setDay(i, e.target.value)}>
-                      <option value="">Off</option>
-                      {(tts.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </td>
-                ))}
-              </tr></tbody>
-            </table>
-          </div>
-        )}
       </Card>
     </>
   );
