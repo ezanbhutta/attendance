@@ -79,16 +79,25 @@ drain is recovered on restart.
 
 ## Deploy (keep-alive)
 
-**pm2:**
+**macOS (launchd)** — the agent machine in this deployment is a Mac. Run from `listener/`:
+```bash
+bash deploy/install-macos.sh     # auto-start at login + restart on crash
+tail -f catcher.log              # watch it
+bash deploy/uninstall-macos.sh   # remove
+```
+For an unattended restart after a reboot, also enable **System Settings → Users &
+Groups → Automatic login** (requires FileVault off).
+
+**pm2 (cross-platform):**
 ```bash
 pm2 start ecosystem.config.js && pm2 startup && pm2 save
 ```
 
-**systemd:** see the header of [`deploy/attendance-listener.service`](deploy/attendance-listener.service).
+**systemd (Linux):** see the header of [`deploy/attendance-listener.service`](deploy/attendance-listener.service).
 
-Give the agent machine a static IP `192.168.1.202` (or a DHCP reservation) on
+Give the agent machine a static IP `192.168.1.22` (or a DHCP reservation) on
 SSID `Haseebmadeit` so the device's configured target stays valid (§12). The
-device already points at `192.168.1.202:8081` — no device change needed.
+device already points at `192.168.1.22:8081` — no device change needed.
 
 ## Project layout
 
@@ -103,7 +112,7 @@ src/
   log.js      timestamped logger
 test/         parser, buffer (Stage-2 gate), route tests
 tools/        simulate-device.js  (replay the device exchange)
-deploy/       systemd unit;  ecosystem.config.js (pm2)
+deploy/       systemd unit; install-macos.sh / uninstall-macos.sh (launchd); ecosystem.config.js (pm2)
 ```
 
 ## Security (§11)

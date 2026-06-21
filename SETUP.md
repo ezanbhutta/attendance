@@ -94,7 +94,15 @@ Quick start:
 ```bash
 npm start            # leave this window open; punches now flow to Supabase
 ```
-To keep it running forever (survives reboots) — **recommended**:
+To keep it running forever (auto-start at login + restart on crash) — **recommended on this Mac**:
+```bash
+bash deploy/install-macos.sh
+tail -f catcher.log  # confirm it's alive; Ctrl+C stops the log view, not the catcher
+```
+For an unattended restart after a reboot, also turn on **System Settings → Users &
+Groups → Automatic login** (needs FileVault off).
+
+Cross-platform alternative (pm2):
 ```bash
 npm install -g pm2
 pm2 start ecosystem.config.js
@@ -104,11 +112,11 @@ pm2 save
 
 ### 2.4 Network checklist (one-time)
 - [ ] This PC is on Wi-Fi **`Haseebmadeit`** (the same one the device uses).
-- [ ] This PC's IP is **`192.168.1.202`** (set a static IP or a router "DHCP reservation").
+- [ ] This PC's IP is **`192.168.1.22`** (set a static IP or a router "DHCP reservation").
 - [ ] Allow **port 8081** through the PC's firewall.
 - [ ] **Never** forward port 8081 to the internet.
 
-The device is already set to send to `192.168.1.202:8081`, so there's nothing to change on the device.
+The device is already set to send to `192.168.1.22:8081`, so there's nothing to change on the device.
 
 ✅ **Listener done.** Real face/fingerprint scans now land in your database.
 
