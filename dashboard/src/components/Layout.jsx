@@ -7,14 +7,13 @@ import HMLogo from './HMLogo.jsx';
 const NAV = [
   ['/', '▦', 'Overview', true],
   ['/employees', '👤', 'Employees'],
-  ['/org', '🏢', 'Departments & Groups'],
-  ['/shifts', '🕘', 'Shifts & Timetables'],
-  ['/schedules', '🗓', 'Schedules'],
+  ['/org', '🏢', 'Departments'],
+  ['/shifts', '🕘', 'Shifts'],
   ['/reports', '📊', 'Reports'],
-  ['/corrections', '✎', 'Corrections'],
+  ['/corrections', '✎', 'Fix a punch'],
   ['/calendar', '🌴', 'Leave & Holidays'],
   ...(IS_DESKTOP ? [['/settings', '⚙', 'Settings']] : []),
-  ['/help', '❔', 'Help'],
+  ['/help', '❔', 'Guide'],
 ];
 
 export default function Layout() {

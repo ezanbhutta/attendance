@@ -7,7 +7,7 @@ import { Card, Field, Table, ConfirmButton, ErrorBanner } from '../components/ui
 function friendlyDelete(error) {
   const msg = `${error?.message || ''} ${error?.details || ''}`;
   if (error?.code === '23503' || /foreign key/i.test(msg)) {
-    return { message: 'Can’t delete this employee yet — apply the latest database update (so an employee’s attendance and mappings delete with them), then try again.' };
+    return { message: 'Can’t delete this person yet — run the latest database update (so their attendance and PIN link delete with them), then try again.' };
   }
   return error;
 }
@@ -15,57 +15,39 @@ function friendlyDelete(error) {
 export default function Employees() {
   const emps = useQuery(() =>
     supabase.from('employees')
-      .select('id,emp_code,first_name,last_name,active,department:departments(name),group:groups(name)')
+      .select('id,emp_code,first_name,last_name,track_attendance,department_id,shift_id,department:departments(name),shift:shifts(name)')
       .order('emp_code'), []);
   const depts = useQuery(() => supabase.from('departments').select('id,name').order('name'), []);
-  const groups = useQuery(() => supabase.from('groups').select('id,name').order('name'), []);
-  const maps = useQuery(() =>
-    supabase.from('device_user_map')
-      .select('device_sn,pin,employee:employees(emp_code,first_name,last_name)')
-      .order('pin'), []);
+  const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*').order('punches', { ascending: false }), []);
   const health = useQuery(() => supabase.from('v_device_health').select('last_user_sync,last_user_sync_count').eq('sn', DEVICE_SN), []);
 
-  const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', group_id: '' });
-  const [map, setMap] = useState({ pin: '', employee_id: '' });
+  const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', shift_id: '' });
   const [err, setErr] = useState(null);
-
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   async function addEmp(e) {
-    e.preventDefault();
-    setErr(null);
-    const payload = { ...form, department_id: form.department_id || null, group_id: form.group_id || null };
+    e.preventDefault(); setErr(null);
+    const payload = { ...form, department_id: form.department_id || null, shift_id: form.shift_id || null };
     const { error } = await supabase.from('employees').insert(payload);
     if (error) return setErr(error);
-    setForm({ emp_code: '', first_name: '', last_name: '', department_id: '', group_id: '' });
+    setForm({ emp_code: '', first_name: '', last_name: '', department_id: '', shift_id: '' });
     emps.refetch();
   }
-
+  async function updateEmp(id, patch) {
+    setErr(null);
+    const { error } = await supabase.from('employees').update(patch).eq('id', id);
+    if (error) return setErr(error);
+    emps.refetch();
+  }
   async function delEmp(id) {
     const { error } = await supabase.from('employees').delete().eq('id', id);
     if (error) return setErr(friendlyDelete(error));
-    emps.refetch(); maps.refetch();
+    emps.refetch();
   }
 
-  async function addMap(e) {
-    e.preventDefault();
-    setErr(null);
-    const { error } = await supabase.from('device_user_map')
-      .upsert({ device_sn: DEVICE_SN, pin: map.pin, employee_id: map.employee_id || null });
-    if (error) return setErr(error);
-    setMap({ pin: '', employee_id: '' });
-    maps.refetch(); unknown.refetch();
-  }
-
-  async function delMap(pin) {
-    const { error } = await supabase.from('device_user_map').delete().eq('device_sn', DEVICE_SN).eq('pin', pin);
-    if (error) return setErr(error);
-    maps.refetch(); unknown.refetch();
-  }
-
-  const empName = (e) => e?.employee ? `${e.employee.first_name ?? ''} ${e.employee.last_name ?? ''}`.trim() : '';
-
+  const deptOpts = depts.data ?? [];
+  const shiftOpts = shifts.data ?? [];
   const sync = health.data?.[0];
   const lastSyncText = sync?.last_user_sync
     ? new Date(sync.last_user_sync).toLocaleString('en-GB', { timeZone: APP_TZ, dateStyle: 'medium', timeStyle: 'short' })
@@ -77,83 +59,72 @@ export default function Employees() {
         <div>
           <h1>Employees</h1>
           <p className="page-intro">
-            People are imported automatically from the device every time the catcher starts.
-            Last synced from device: <strong>{lastSyncText}</strong>
-            {sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
+            Everyone is imported from the device automatically. For each person, pick a
+            <strong> Department</strong> and <strong>Shift</strong> — or set <strong>Gate only</strong> for
+            people who scan to open the gate but shouldn’t be counted (CEO/Admin).
+            Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
           </p>
         </div>
       </div>
       <ErrorBanner error={err || emps.error} />
 
-      <Card title="Add employee">
-        <form onSubmit={addEmp} className="row">
-          <Field label="Code *"><input required value={form.emp_code} onChange={set('emp_code')} placeholder="EMP002" /></Field>
-          <Field label="First name *"><input required value={form.first_name} onChange={set('first_name')} /></Field>
-          <Field label="Last name"><input value={form.last_name} onChange={set('last_name')} /></Field>
-          <Field label="Department">
-            <select value={form.department_id} onChange={set('department_id')}>
-              <option value="">—</option>
-              {(depts.data ?? []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Group">
-            <select value={form.group_id} onChange={set('group_id')}>
-              <option value="">—</option>
-              {(groups.data ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </Field>
-          <button className="btn primary">Add</button>
-        </form>
-      </Card>
+      {unknown.data?.length > 0 && (
+        <div className="callout warn">
+          <strong>{unknown.data.length} PIN(s) have punched but aren’t linked to a person yet.</strong>{' '}
+          Restart the catcher to import them (PIN{unknown.data.length > 1 ? 's' : ''}: {unknown.data.map((u) => u.pin).join(', ')}).
+        </div>
+      )}
 
       <Card title="All employees">
         <Table
-          loading={emps.loading} rows={emps.data} empty="No employees yet."
+          loading={emps.loading} rows={emps.data} empty="No employees yet — start the catcher to import them from the device."
           columns={[
-            { key: 'emp_code', label: 'Code' },
+            { key: 'emp_code', label: 'PIN' },
             { key: 'name', label: 'Name', render: (r) => `${r.first_name} ${r.last_name ?? ''}`.trim() },
-            { key: 'department', label: 'Department', render: (r) => r.department?.name ?? '—' },
-            { key: 'group', label: 'Group', render: (r) => r.group?.name ?? '—' },
-            { key: 'active', label: 'Active', render: (r) => (r.active ? 'Yes' : 'No') },
+            { key: 'department', label: 'Department', render: (r) => (
+              <select className="compact" value={r.department_id ?? ''} onChange={(e) => updateEmp(r.id, { department_id: e.target.value || null })}>
+                <option value="">—</option>
+                {deptOpts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            ) },
+            { key: 'counted', label: 'Counted?', render: (r) => (
+              <select className="compact" value={r.track_attendance ? '1' : '0'} onChange={(e) => updateEmp(r.id, { track_attendance: e.target.value === '1' })}>
+                <option value="1">Counted</option>
+                <option value="0">Gate only</option>
+              </select>
+            ) },
+            { key: 'shift', label: 'Shift', render: (r) => (
+              <select className="compact" value={r.shift_id ?? ''} disabled={!r.track_attendance}
+                      onChange={(e) => updateEmp(r.id, { shift_id: e.target.value || null })}>
+                <option value="">—</option>
+                {shiftOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            ) },
             { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={() => delEmp(r.id)} /> },
           ]}
         />
       </Card>
 
-      <div className="grid cols-2">
-        <Card title="Device PIN → employee">
-          <form onSubmit={addMap} className="row" style={{ marginBottom: 12 }}>
-            <Field label="PIN *"><input required value={map.pin} onChange={(e) => setMap({ ...map, pin: e.target.value })} placeholder="2" /></Field>
-            <Field label="Employee">
-              <select value={map.employee_id} onChange={(e) => setMap({ ...map, employee_id: e.target.value })}>
-                <option value="">—</option>
-                {(emps.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} — {e.first_name}</option>)}
-              </select>
-            </Field>
-            <button className="btn primary">Map</button>
-          </form>
-          <Table
-            loading={maps.loading} rows={maps.data} empty="No mappings yet."
-            columns={[
-              { key: 'pin', label: 'PIN' },
-              { key: 'employee', label: 'Employee', render: (r) => empName(r) || <span className="muted">Unmapped</span> },
-              { key: 'code', label: 'Code', render: (r) => r.employee?.emp_code ?? '—' },
-              { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={() => delMap(r.pin)} /> },
-            ]}
-          />
-        </Card>
-
-        <Card title="Unmapped PINs (seen on device)">
-          <p className="muted" style={{ marginTop: 0 }}>Punches from these PINs show as “Unknown” until mapped above.</p>
-          <Table
-            loading={unknown.loading} rows={unknown.data} empty="Every PIN that has punched is mapped. 🎉"
-            columns={[
-              { key: 'pin', label: 'PIN' },
-              { key: 'punches', label: 'Punches', num: true },
-            ]}
-          />
-        </Card>
-      </div>
+      <Card title="Add someone manually (rarely needed — the device sync adds people for you)">
+        <form onSubmit={addEmp} className="row">
+          <Field label="PIN / Code *"><input required value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. 28" /></Field>
+          <Field label="First name *"><input required value={form.first_name} onChange={set('first_name')} /></Field>
+          <Field label="Last name"><input value={form.last_name} onChange={set('last_name')} /></Field>
+          <Field label="Department">
+            <select value={form.department_id} onChange={set('department_id')}>
+              <option value="">—</option>
+              {deptOpts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Shift">
+            <select value={form.shift_id} onChange={set('shift_id')}>
+              <option value="">—</option>
+              {shiftOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </Field>
+          <button className="btn primary">Add</button>
+        </form>
+      </Card>
     </>
   );
 }
