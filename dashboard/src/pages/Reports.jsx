@@ -6,6 +6,7 @@ import { downloadCSV } from '../lib/csv';
 import { Download, Printer, UserCheck, UserX, Clock, Plane, Timer, TrendingUp } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import DateRangePicker from '../components/DateRangePicker.jsx';
+import { withAutoCheckout } from '../lib/attendance';
 import PrintHeader from '../components/PrintHeader.jsx';
 
 const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'WeeklyOff'];
@@ -49,6 +50,7 @@ export default function Reports() {
     return (report.data ?? [])
       .map((r) => ({ ...r, shift: shiftBy[r.employee_id] ?? null }))
       .filter((r) => countedIds.has(r.employee_id))   // gate-only (CEO/Admin) never in reports
+      .map((r) => withAutoCheckout(r))
       .filter((r) => !dept || r.department === dept)
       .filter((r) => !shift || r.shift === shift)
       .filter((r) => !emp || String(r.employee_id) === String(emp))
@@ -96,7 +98,7 @@ export default function Reports() {
     { key: 'department', label: 'Department', render: (r) => r.department ?? '—' },
     { key: 'shift', label: 'Shift', render: (r) => r.shift ?? '—' },
     { key: 'first_in', label: 'In', render: (r) => fmtTime(r.first_in), csv: (r) => fmtTime(r.first_in) },
-    { key: 'last_out', label: 'Out', render: (r) => fmtTime(r.last_out), csv: (r) => fmtTime(r.last_out) },
+    { key: 'last_out', label: 'Out', render: (r) => <>{fmtTime(r.last_out)}{r.auto_out && <span className="auto-tag">auto</span>}</>, csv: (r) => r.auto_out ? `${fmtTime(r.last_out)} (auto)` : fmtTime(r.last_out) },
     { key: 'late_minutes', label: 'Late', num: true, render: (r) => minutesToHM(r.late_minutes), csv: (r) => r.late_minutes },
     { key: 'worked_minutes', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked_minutes), csv: (r) => r.worked_minutes },
     { key: 'overtime_minutes', label: 'OT', num: true, render: (r) => minutesToHM(r.overtime_minutes), csv: (r) => r.overtime_minutes },

@@ -6,7 +6,7 @@ const _at = (h, m = 0) => { const d = new Date(_now); d.setHours(h, m, 0, 0); re
 let _id = 0;
 const _p = (first, last, dept, status, extra = {}) => ({
   employee_id: ++_id, emp_code: String(1040 + _id), first_name: first, last_name: last,
-  department: dept, status, late_minutes: 0, first_in: null, scheduled_in: _at(9), ...extra,
+  department: dept, status, late_minutes: 0, first_in: null, last_out: null, scheduled_in: _at(9), scheduled_out: _at(17), ...extra,
 });
 const F = {
   v_report_daily: [

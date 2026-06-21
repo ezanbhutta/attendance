@@ -4,6 +4,7 @@ import { useQuery } from '../lib/useData';
 import { todayISO, daysAgoISO, fmtDate, fmtTime } from '../lib/format';
 import { Users, UserCheck, UserX, TrendingUp, Clock, Plane, Hourglass } from 'lucide-react';
 import { Card, Table, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
+import { withAutoCheckout } from '../lib/attendance';
 import PrintHeader from '../components/PrintHeader.jsx';
 
 export default function CeoView() {
@@ -15,7 +16,7 @@ export default function CeoView() {
     supabase.from('employees').select('id,track_attendance,active,department:departments(name)'), []);
   const todayRows = useQuery(() =>
     supabase.from('v_report_daily')
-      .select('employee_id,emp_code,first_name,last_name,department,status,late_minutes,first_in,scheduled_in')
+      .select('employee_id,emp_code,first_name,last_name,department,status,late_minutes,first_in,last_out,scheduled_in,scheduled_out')
       .eq('work_date', today), [today]);
   const week = useQuery(() =>
     supabase.from('v_report_daily').select('work_date,status,scheduled_in').gte('work_date', daysAgoISO(6)).lte('work_date', today), [today]);
@@ -30,7 +31,7 @@ export default function CeoView() {
   const counted = (emps.data ?? []).filter((e) => e.track_attendance && e.active !== false);
   const countedIds = new Set(counted.map((e) => e.id));
   // Gate-only people (CEO/Admin) and archived staff never appear in the numbers.
-  const rows = (todayRows.data ?? []).filter((r) => countedIds.has(r.employee_id));
+  const rows = (todayRows.data ?? []).filter((r) => countedIds.has(r.employee_id)).map((r) => withAutoCheckout(r, now));
   const present = rows.filter((r) => r.status === 'Present');
   const incomplete = rows.filter((r) => r.status === 'Incomplete');
   const absent = rows.filter((r) => r.status === 'Absent' && started(r));

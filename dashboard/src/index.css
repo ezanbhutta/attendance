@@ -214,6 +214,7 @@ tbody tr.row-click{cursor:pointer}
 td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 td.mono{font-family:var(--mono);color:var(--text)}
 td strong{font-weight:600;color:var(--text)}
+.auto-tag{margin-left:6px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--accent-weak);border-radius:999px;padding:1px 6px;vertical-align:middle}
 th.sortable{cursor:pointer;user-select:none}
 .th-in{display:inline-flex;align-items:center;gap:5px}
 th.num .th-in{flex-direction:row-reverse}

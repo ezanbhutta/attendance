@@ -3,6 +3,7 @@ import { UserCheck, Clock, Hourglass, UserX, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { todayISO, fmtDateTime, fmtTime } from '../lib/format';
+import { withAutoCheckout } from '../lib/attendance';
 import { Card, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
 
 export default function Overview() {
@@ -43,7 +44,7 @@ export default function Overview() {
   // Archived (inactive) people must not appear in any live count or drill-down,
   // even if an old attendance row lingers from before they were archived.
   const inactive = new Set((roster.data ?? []).filter((e) => e.active === false).map((e) => e.id));
-  const rows = (daily.data ?? []).filter((r) => !inactive.has(r.employee_id));
+  const rows = (daily.data ?? []).filter((r) => !inactive.has(r.employee_id)).map((r) => withAutoCheckout(r, now));
   const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
   const fullName = (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || `PIN ${r.emp_code}`;
 
