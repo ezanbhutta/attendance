@@ -95,7 +95,33 @@ function createStore(config) {
     }
   }
 
-  return { insertPunches, updateDeviceStatus, importDeviceUsers, recordUserSync };
+  // Claim pending web "Sync now" requests for this device (created by the
+  // dashboard's Sync button, which can't reach the LAN device directly). Marks
+  // them done and returns how many were pending so the server can ask the device
+  // to re-upload. Best-effort; never throws.
+  async function claimSyncRequests(deviceSn) {
+    try {
+      const { data, error } = await supabase
+        .from('device_sync_requests')
+        .select('id')
+        .is('done_at', null)
+        .eq('device_sn', deviceSn)
+        .limit(20);
+      if (error) throw new Error(error.message);
+      if (!data || !data.length) return 0;
+      const ids = data.map((r) => r.id);
+      const now = new Date().toISOString();
+      await supabase.from('device_sync_requests')
+        .update({ picked_up_at: now, done_at: now })
+        .in('id', ids);
+      return ids.length;
+    } catch (e) {
+      log.warn('sync-request poll skipped:', e.message);
+      return 0;
+    }
+  }
+
+  return { insertPunches, updateDeviceStatus, importDeviceUsers, recordUserSync, claimSyncRequests };
 }
 
 module.exports = { createStore };

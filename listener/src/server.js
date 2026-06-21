@@ -47,8 +47,23 @@ function main() {
     }
   });
 
+  // Web "Sync" button → device re-upload. The dashboard can't reach the LAN
+  // device, so it drops a row in device_sync_requests; we poll for it here and
+  // ask the device to re-upload its users + stored attendance on its next poll.
+  const syncPollMs = Number(process.env.SYNC_POLL_MS) || 5000;
+  const syncTimer = setInterval(async () => {
+    const n = await store.claimSyncRequests(config.deviceSn);
+    if (n > 0) {
+      log.info(`web sync requested (${n}); queuing device re-upload`);
+      app.requestUserSync();
+      app.requestHistorySync();
+    }
+  }, syncPollMs);
+  syncTimer.unref();
+
   function shutdown(sig) {
     log.info(`${sig} received; shutting down`);
+    clearInterval(syncTimer);
     buffer.stop();
     server.close(() => {
       log.info('listener stopped');
