@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Search, Plus, Archive, RotateCcw, Upload } from 'lucide-react';
+import { Search, Plus, Archive, RotateCcw, Upload, Trash2 } from 'lucide-react';
 import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
-import { Card, Field, Table, ConfirmButton, ErrorBanner, Badge } from '../components/ui.jsx';
+import { Card, Field, Table, ErrorBanner, Badge } from '../components/ui.jsx';
 
 function friendlyDelete(error) {
   const msg = `${error?.message || ''} ${error?.details || ''}`;
@@ -28,6 +28,7 @@ export default function Employees() {
   const [notice, setNotice] = useState(null);
   const [q, setQ] = useState('');
   const [archived, setArchived] = useState(false);
+  const [armed, setArmed] = useState(null);   // id of the person whose Delete is armed
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   // Send name, PIN and card to the device through the catcher. Face and
@@ -170,19 +171,28 @@ export default function Employees() {
                 <option value="0">Sunday</option>
               </select>
             ) },
-            { key: 'act', label: '', render: (r) => (
-              r.active === false ? (
+            { key: 'act', label: '', sortable: false, render: (r) => {
+              const del = (
+                <button className={`icon-btn sm danger${armed === r.id ? ' on' : ''}`}
+                  onClick={() => (armed === r.id ? delEmp(r.id) : setArmed(r.id))}
+                  onBlur={() => setArmed((a) => (a === r.id ? null : a))}
+                  title={armed === r.id ? 'Click again to delete for good' : 'Delete for good'}>
+                  <Trash2 size={14} />
+                </button>
+              );
+              return r.active === false ? (
                 <span className="inline-actions">
-                  <button className="btn sm" onClick={() => updateEmp(r.id, { active: true })} title="Bring back and start counting again"><RotateCcw size={13} /> Restore</button>
-                  <ConfirmButton onConfirm={() => delEmp(r.id)} />
+                  <button className="icon-btn sm" onClick={() => updateEmp(r.id, { active: true })} title="Restore and start counting again"><RotateCcw size={14} /></button>
+                  {del}
                 </span>
               ) : (
                 <span className="inline-actions">
-                  <button className="btn sm" onClick={() => pushToDevice(r)} title="Send this person's name, PIN and card to the device"><Upload size={13} /> To device</button>
-                  <button className="btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive and stop counting until you bring them back"><Archive size={13} /> Archive</button>
+                  <button className="icon-btn sm" onClick={() => pushToDevice(r)} title="Send name, PIN and card to the device"><Upload size={14} /></button>
+                  <button className="icon-btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive and stop counting until restored"><Archive size={14} /></button>
+                  {del}
                 </span>
-              )
-            ) },
+              );
+            } },
           ]}
         />
       </Card>

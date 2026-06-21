@@ -20,7 +20,7 @@ export default function Overview() {
   const health = useQuery(() => supabase.from('v_device_health').select('*'), []);
   const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(60), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*'), []);
-  const roster = useQuery(() => supabase.from('employees').select('id,active'), []);
+  const roster = useQuery(() => supabase.from('employees').select('id,active,track_attendance'), []);
 
   // Realtime: refetch the moment a punch lands.
   useEffect(() => {
@@ -41,10 +41,11 @@ export default function Overview() {
   }, []);
 
   const now = Date.now();
-  // Archived (inactive) people must not appear in any live count or drill-down,
-  // even if an old attendance row lingers from before they were archived.
-  const inactive = new Set((roster.data ?? []).filter((e) => e.active === false).map((e) => e.id));
-  const rows = (daily.data ?? []).filter((r) => !inactive.has(r.employee_id)).map((r) => withAutoCheckout(r, now));
+  // Gate only people (admin, CEO) and archived people must never appear in any
+  // live count or drill-down, even if an attendance row lingers for them. This
+  // matches Reports and the CEO view, which only ever count tracked staff.
+  const excluded = new Set((roster.data ?? []).filter((e) => e.active === false || !e.track_attendance).map((e) => e.id));
+  const rows = (daily.data ?? []).filter((r) => !excluded.has(r.employee_id)).map((r) => withAutoCheckout(r, now));
   const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
   const fullName = (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || `PIN ${r.emp_code}`;
 
