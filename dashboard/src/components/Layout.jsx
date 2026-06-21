@@ -43,8 +43,8 @@ export default function Layout() {
           </nav>
 
           <div className="topnav-actions">
+            <SyncButton />
             <ThemeToggle />
-            {IS_DESKTOP && <SyncButton />}
             <span className="avatar no-print" title={user?.email}>{initial}</span>
             <button className="icon-btn no-print" onClick={signOut} title="Sign out" aria-label="Sign out">
               <LogOut size={16} />

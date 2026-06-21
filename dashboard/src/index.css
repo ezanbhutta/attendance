@@ -92,12 +92,12 @@ p{margin:0}
 /* ─── Top navigation — centered, "clean discipline system" ─────────────── */
 .app{min-height:100vh;display:flex;flex-direction:column}
 .topnav{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surface) 86%,transparent);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--border)}
-.topnav-inner{max-width:1200px;margin:0 auto;padding:0 32px;height:58px;display:flex;align-items:center;gap:20px}
+.topnav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;gap:14px}
 .topnav .brand{display:flex;align-items:center;gap:9px;flex-shrink:0;padding:0}
 .topnav .brand .name{font-family:var(--disp);font-weight:600;font-size:.95rem;letter-spacing:-.02em;white-space:nowrap}
 .topnav-links{display:flex;align-items:stretch;height:58px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .topnav-links::-webkit-scrollbar{display:none}
-.topnav-links a{display:inline-flex;align-items:center;padding:0 13px;height:58px;color:var(--muted);font-weight:500;font-size:.85rem;letter-spacing:-.01em;white-space:nowrap;position:relative;transition:color .12s}
+.topnav-links a{display:inline-flex;align-items:center;padding:0 10px;height:58px;color:var(--muted);font-weight:500;font-size:.83rem;letter-spacing:-.01em;white-space:nowrap;position:relative;transition:color .12s}
 .topnav-links a:hover{color:var(--text)}
 .topnav-links a.active{color:var(--text);font-weight:600}
 .topnav-links a.active::after{content:'';position:absolute;left:13px;right:13px;bottom:0;height:2px;background:var(--accent)}
@@ -194,6 +194,10 @@ input.name-edit:focus{border-color:var(--accent);background:var(--surface)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .inline-actions{display:flex;gap:7px;align-items:center}
 .pill-row{display:flex;gap:8px;flex-wrap:wrap}
+.spin{animation:spin .8s linear infinite}
+.sync-wrap{display:inline-flex;align-items:center;gap:9px}
+.sync-msg{font-size:.76rem;color:var(--muted);white-space:nowrap;max-width:230px;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1140px){.sync-msg{display:none}}
 
 /* ─── Tables ────────────────────────────────────────────────────────────── */
 .table-wrap{overflow-x:auto}
@@ -267,6 +271,19 @@ td strong{font-weight:600;color:var(--text)}
 .drawer-head h2{font-size:1.1rem}
 .drawer-head .sub{font-size:.83rem;color:var(--muted);margin-top:3px}
 .drawer-body{padding:10px 14px 22px;overflow-y:auto;flex:1}
+.drill-row{display:flex;align-items:center;gap:11px;padding:11px 8px;border-bottom:1px solid var(--hairline)}
+.drill-row:last-child{border-bottom:none}
+.drill-row .av{width:32px;height:32px;border-radius:50%;background:var(--accent-weak);color:var(--accent);display:grid;place-items:center;font-weight:600;font-size:.76rem;flex-shrink:0}
+.drill-row .who{min-width:0;flex:1}
+.drill-row .nm{font-weight:500;font-size:.92rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drill-row .meta{font-size:.77rem;color:var(--muted);margin-top:1px}
+.drill-row .t{margin-left:auto;font-family:var(--mono);font-size:.82rem;color:var(--muted);white-space:nowrap}
+.unlinked{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.unlinked .pin{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);padding:6px 11px;font-size:.82rem}
+.unlinked .pin b{font-family:var(--mono);color:var(--text)}
+.unlinked .pin .when{color:var(--muted);font-family:var(--mono);font-size:.76rem}
+.unlinked .pin .pin-x{margin-left:4px;border:none;background:none;color:var(--accent);font-size:.74rem;font-weight:600;cursor:pointer;padding:0 2px}
+.unlinked .pin .pin-x:hover{text-decoration:underline;color:var(--accent-2)}
 
 /* ─── States / misc ────────────────────────────────────────────────────── */
 .center{display:grid;place-items:center;min-height:60vh;padding:24px}

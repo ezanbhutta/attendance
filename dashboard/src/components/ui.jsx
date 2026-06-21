@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 
 export function Card({ title, actions, children, className = '', help }) {
   return (
@@ -128,5 +129,38 @@ export function ConfirmButton({ onConfirm, children = 'Delete', label = 'Confirm
     >
       {armed ? label : children}
     </button>
+  );
+}
+
+// Slide-in detail panel for drill-downs. Click scrim or press Esc to close.
+export function Drawer({ title, sub, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <>
+      <div className="drawer-scrim" onClick={onClose} />
+      <aside className="drawer" role="dialog" aria-modal="true">
+        <div className="drawer-head">
+          <div><h2>{title}</h2>{sub && <div className="sub">{sub}</div>}</div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        <div className="drawer-body">{children}</div>
+      </aside>
+    </>
+  );
+}
+
+// One person line inside a drill-down drawer: initials avatar + name + meta.
+export function PersonRow({ name, meta, right }) {
+  const initials = (name || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <div className="drill-row">
+      <span className="av">{initials}</span>
+      <div className="who"><div className="nm">{name}</div>{meta && <div className="meta">{meta}</div>}</div>
+      {right && <div className="t">{right}</div>}
+    </div>
   );
 }

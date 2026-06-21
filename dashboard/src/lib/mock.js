@@ -1,16 +1,30 @@
 // DEV-ONLY mock Supabase client, used purely for headless visual rendering of
 // the real app (VITE_MOCK=1). Never imported in a normal build. Lets us load
 // every page with representative data in a browser to verify the design.
+const _now = new Date();
+const _at = (h, m = 0) => { const d = new Date(_now); d.setHours(h, m, 0, 0); return d.toISOString(); };
+let _id = 0;
+const _p = (first, last, dept, status, extra = {}) => ({
+  employee_id: ++_id, emp_code: String(1040 + _id), first_name: first, last_name: last,
+  department: dept, status, late_minutes: 0, first_in: null, scheduled_in: _at(9), ...extra,
+});
 const F = {
   v_report_daily: [
-    { status: 'Present', late_minutes: 0 }, { status: 'Present', late_minutes: 14 },
-    { status: 'Incomplete', late_minutes: 0 }, { status: 'Incomplete', late_minutes: 0 },
-    { status: 'Incomplete', late_minutes: 0 }, { status: 'Incomplete', late_minutes: 0 },
-    { status: 'Incomplete', late_minutes: 0 },
-    { status: 'Absent', late_minutes: 0 }, { status: 'Absent', late_minutes: 0 },
-    { status: 'Absent', late_minutes: 0 }, { status: 'Absent', late_minutes: 0 },
-    { status: 'Absent', late_minutes: 0 }, { status: 'Absent', late_minutes: 0 },
-    { status: 'Absent', late_minutes: 0 },
+    _p('Salman', 'Khan', 'Creative', 'Present', { first_in: _at(9, 1) }),
+    _p('Ayesha', 'Malik', 'Accounts', 'Present', { first_in: _at(9, 14), late_minutes: 14 }),
+    _p('Bilal', 'Ahmed', 'Production', 'Incomplete', { first_in: _at(9, 3) }),
+    _p('Fatima', 'Noor', 'Creative', 'Incomplete', { first_in: _at(8, 58) }),
+    _p('Usman', 'Tariq', 'Production', 'Incomplete', { first_in: _at(9, 6) }),
+    _p('Hira', 'Sheikh', 'Accounts', 'Incomplete', { first_in: _at(9, 0) }),
+    _p('Zain', 'Abbas', 'Creative', 'Incomplete', { first_in: _at(9, 9) }),
+    _p('Imran', 'Ali', 'Production', 'Absent'),
+    _p('Sana', 'Javed', 'Accounts', 'Absent'),
+    _p('Omar', 'Farooq', 'Creative', 'Absent'),
+    _p('Nida', 'Yousuf', 'Production', 'Absent'),
+    // Night shift — scheduled 21:00, not due yet, so must NOT count as absent now:
+    _p('Kamran', 'Shah', 'Production', 'Absent', { scheduled_in: _at(21) }),
+    _p('Rabia', 'Aslam', 'Production', 'Absent', { scheduled_in: _at(21) }),
+    _p('Tariq', 'Mehmood', 'Production', 'Absent', { scheduled_in: _at(21) }),
   ],
   v_device_health: [
     { id: 1, name: 'SenseFace 2A', sn: 'NYU7253801246', ip: '192.168.1.22',
@@ -23,6 +37,10 @@ const F = {
     { id: 4, punch_time: new Date(Date.now() - 21 * 60000).toISOString(), employee: 'Fatima Noor', pin: '1131', emp_code: '1131', method: 'face' },
     { id: 5, punch_time: new Date(Date.now() - 34 * 60000).toISOString(), employee: '', pin: '21', emp_code: '21', method: 'fingerprint' },
     { id: 6, punch_time: new Date(Date.now() - 51 * 60000).toISOString(), employee: 'Usman Tariq', pin: '1090', emp_code: '1090', method: 'face' },
+  ],
+  v_unknown_pins: [
+    { device_sn: 'NYU7253801246', pin: '21', punches: 3, first_seen: _at(8, 12), last_seen: _at(14, 33) },
+    { device_sn: 'NYU7253801246', pin: '9', punches: 1, first_seen: _at(13, 2), last_seen: _at(13, 2) },
   ],
   employees: [
     { id: 1, name: 'Salman Khan', emp_code: '1042', department: 'Creative', active: true, methods: 'face' },

@@ -1,42 +1,47 @@
 import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { supabase, IS_DESKTOP, DEVICE_SN } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
 
-// Desktop-only: "fetch from the device now" button + last-sync time.
-// Talks to the Electron main process via the preload bridge (window.attendance).
+// One-click "re-sync the device now".
+//  • Desktop app: talks straight to the device via the Electron bridge.
+//  • Web: drops a request row that the always-on Mac catcher picks up and acts
+//    on (it re-pulls ATTLOG/USERINFO from the device), so HR never installs a thing.
 export default function SyncButton() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [last, setLast] = useState(null);
 
   useEffect(() => {
-    window.attendance?.getStatus?.().then((s) => s?.lastSync && setLast(s.lastSync)).catch(() => {});
+    if (IS_DESKTOP) {
+      window.attendance?.getStatus?.().then((s) => s?.lastSync && setMsg(`Last sync ${fmtDateTime(s.lastSync)}`)).catch(() => {});
+    }
   }, []);
 
   async function sync() {
     setBusy(true);
-    setMsg('Fetching from device…');
+    setMsg(IS_DESKTOP ? 'Fetching from device…' : 'Asking your Mac to sync…');
     try {
-      const r = await window.attendance.syncNow();
-      if (r?.ok === false) setMsg(`Sync failed: ${r.error}`);
-      else {
-        setMsg(`Fetched ${r.pulled} punch(es)`);
-        setLast(new Date().toISOString());
+      if (IS_DESKTOP && window.attendance?.syncNow) {
+        const r = await window.attendance.syncNow();
+        setMsg(r?.ok === false ? `Sync failed: ${r.error}` : `Fetched ${r.pulled} punch(es)`);
+      } else {
+        const { error } = await supabase.from('device_sync_requests').insert({ device_sn: DEVICE_SN });
+        setMsg(error ? `Couldn’t request sync: ${error.message}` : 'Sync requested — your Mac is pulling from the device now.');
       }
     } catch {
       setMsg('Sync failed');
     }
     setBusy(false);
-    setTimeout(() => setMsg(''), 7000);
+    setTimeout(() => setMsg(''), 9000);
   }
 
   return (
-    <div className="row" style={{ alignItems: 'center', gap: 8 }}>
-      <span className="muted" style={{ fontSize: '.78rem' }}>
-        {msg || (last ? `Last sync: ${fmtDateTime(last)}` : 'Not synced yet')}
-      </span>
-      <button className="btn sm primary" onClick={sync} disabled={busy}>
-        {busy ? 'Fetching…' : '⟳ Sync device'}
+    <span className="sync-wrap no-print">
+      {msg && <span className="sync-msg">{msg}</span>}
+      <button className="btn sm" onClick={sync} disabled={busy} title="Re-sync the device now">
+        <RefreshCw size={14} className={busy ? 'spin' : ''} />
+        {busy ? 'Syncing…' : 'Sync'}
       </button>
-    </div>
+    </span>
   );
 }

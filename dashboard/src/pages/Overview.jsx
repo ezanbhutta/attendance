@@ -1,65 +1,118 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { UserCheck, Clock, Hourglass, UserX, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { todayISO, fmtDateTime, fmtTime } from '../lib/format';
-import { Card, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
+import { Card, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
 
 export default function Overview() {
   const today = todayISO();
+  const [, setTick] = useState(0);     // forces a re-evaluate every minute
+  const [drill, setDrill] = useState(null);
+  const [ignored, setIgnored] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('ignored-pins') || '[]')); } catch { return new Set(); }
+  });
 
-  const daily = useQuery(() =>
-    supabase.from('v_report_daily').select('status,late_minutes').eq('work_date', today), [today]);
+  const daily = useQuery(() => supabase.from('v_report_daily')
+    .select('employee_id,emp_code,first_name,last_name,department,status,late_minutes,first_in,last_out,scheduled_in,scheduled_out')
+    .eq('work_date', today), [today]);
   const health = useQuery(() => supabase.from('v_device_health').select('*'), []);
-  const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(50), []);
+  const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(60), []);
+  const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*'), []);
 
-  // Realtime: refetch the feed (and today's stats) whenever a punch lands.
+  // Realtime: refetch the moment a punch lands.
   useEffect(() => {
-    const ch = supabase
-      .channel('rt-punches')
+    const ch = supabase.channel('rt-punches')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'raw_punches' }, () => {
-        feed.refetch();
-        daily.refetch();
+        feed.refetch(); daily.refetch(); unknown.refetch();
       })
       .subscribe();
     return () => supabase.removeChannel(ch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-evaluate every minute so someone flips to "absent" exactly when their
+  // shift starts (not before), and the dashboard/CEO stay correct through the day.
+  useEffect(() => {
+    const t = setInterval(() => setTick((x) => x + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const now = Date.now();
   const rows = daily.data ?? [];
-  const stat = {
-    present: rows.filter((r) => r.status === 'Present').length,
-    incomplete: rows.filter((r) => r.status === 'Incomplete').length,
-    absent: rows.filter((r) => r.status === 'Absent').length,
-    late: rows.filter((r) => (r.late_minutes ?? 0) > 0).length,
-  };
+  const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
+  const fullName = (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || `PIN ${r.emp_code}`;
+
+  const present = rows.filter((r) => r.status === 'Present');
+  const late = rows.filter((r) => (r.late_minutes ?? 0) > 0);
+  const stillIn = rows.filter((r) => r.status === 'Incomplete');
+  const absent = rows.filter((r) => r.status === 'Absent' && started(r));    // shift started + no scan
+  const upcoming = rows.filter((r) => r.status === 'Absent' && !started(r));  // shift not due yet
+
+  const open = (title, list, right) =>
+    setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, list, right });
+
+  // Some PINs aren't real users (test scans, removed staff). Let HR ignore them
+  // so they stop nagging — remembered on this device, and shared once the
+  // ignored_pins migration is applied.
+  const unlinked = (unknown.data ?? []).filter((u) => !ignored.has(`${u.device_sn}::${u.pin}`));
+  function ignorePin(device_sn, pin) {
+    const next = new Set(ignored); next.add(`${device_sn}::${pin}`); setIgnored(next);
+    try { localStorage.setItem('ignored-pins', JSON.stringify([...next])); } catch {}
+    supabase.from('ignored_pins').insert({ device_sn, pin }).then(() => {}, () => {});
+  }
 
   return (
     <>
       <div className="page-title">
         <div>
           <h1>Overview</h1>
-          <p className="page-intro">Live snapshot of today. The feed updates the moment someone scans.</p>
+          <p className="page-intro">Today at a glance. The feed updates the moment someone scans — and absences only count once a shift has actually started.</p>
         </div>
-        <span className="muted">{today}</span>
+        <div className="page-tools">
+          <span className="date-chip">{today}</span>
+          <span className="live"><span className="p" />Live</span>
+        </div>
       </div>
       <ErrorBanner error={daily.error || feed.error || health.error} />
 
+      {unlinked.length > 0 && (
+        <div className="callout warn">
+          <b>{unlinked.length} PIN{unlinked.length > 1 ? 's' : ''} scanned but not linked to anyone.</b> Link a PIN to a person on the Employees page — or ignore it if it isn’t a real user.
+          <div className="unlinked">
+            {unlinked.map((u) => (
+              <span className="pin" key={`${u.device_sn}-${u.pin}`}>
+                PIN <b>{u.pin}</b> · {u.punches} scan{u.punches > 1 ? 's' : ''} · <span className="when">last {fmtTime(u.last_seen)}</span>
+                <button className="pin-x" onClick={() => ignorePin(u.device_sn, u.pin)} title="Not a real user — stop showing this PIN">Ignore</button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid cols-4">
-        <Stat icon={UserCheck} tone="ok" label="Present today" value={stat.present} />
-        <Stat icon={Clock} tone="warn" label="Late" value={stat.late} />
-        <Stat icon={Hourglass} tone="violet" label="Still in" value={stat.incomplete} />
-        <Stat icon={UserX} tone="danger" label="Absent" value={stat.absent} />
+        <Stat icon={UserCheck} tone="ok" label="Present" value={present.length}
+          onClick={() => open('Present today', present, (r) => `in ${fmtTime(r.first_in)}`)}
+          help="Scanned in and out for a shift that has started today. Click to see who." />
+        <Stat icon={Clock} tone="warn" label="Late" value={late.length}
+          onClick={() => open('Late arrivals', late, (r) => `${r.late_minutes}m late`)}
+          help="Scanned in after their shift’s start time plus the grace period." />
+        <Stat icon={Hourglass} tone="violet" label="Still in" value={stillIn.length}
+          onClick={() => open('Still in', stillIn, (r) => `in ${fmtTime(r.first_in)}`)}
+          help="Scanned in but haven’t scanned out yet." />
+        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length}
+          hint={upcoming.length ? `${upcoming.length} not due yet` : null}
+          onClick={() => open('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
+          help="Scheduled today, their shift has already started, and still no scan — excluding weekly-off and approved leave. People whose shift hasn’t started yet are shown as “not due yet”, not absent." />
       </div>
 
-      <Card title="Device health" actions={<button className="btn sm" onClick={health.refetch}><RefreshCw size={14} /> Refresh</button>}>
+      <Card title="Device health" help="Your scanner and the catcher service. “Online” means a heartbeat arrived in the last 2 minutes."
+        actions={<button className="btn sm" onClick={health.refetch}><RefreshCw size={14} /> Refresh</button>}>
         <Table
-          loading={health.loading}
-          empty="No devices yet."
-          rows={health.data}
+          loading={health.loading} empty="No devices yet." rows={health.data}
           columns={[
-            { key: 'name', label: 'Device', render: (r) => r.name || r.sn },
-            { key: 'sn', label: 'Serial' },
+            { key: 'name', label: 'Device', render: (r) => <strong>{r.name || r.sn}</strong> },
+            { key: 'sn', label: 'Serial', render: (r) => <span className="mono">{r.sn}</span> },
             { key: 'ip', label: 'IP' },
             { key: 'firmware', label: 'Firmware' },
             { key: 'last_seen', label: 'Last seen', render: (r) => fmtDateTime(r.last_seen) },
@@ -68,19 +121,28 @@ export default function Overview() {
         />
       </Card>
 
-      <Card title="Live punch feed" actions={<button className="btn sm" onClick={feed.refetch}><RefreshCw size={14} /> Refresh</button>}>
+      <Card title="Live punch feed" help="Every scan as it happens, newest first. Updates live as people use the device."
+        actions={<button className="btn sm" onClick={feed.refetch}><RefreshCw size={14} /> Refresh</button>}>
         <Table
-          loading={feed.loading}
-          empty="No punches captured yet."
-          rows={feed.data}
+          loading={feed.loading} empty="No punches captured yet." rows={feed.data}
           columns={[
-            { key: 'punch_time', label: 'Time', render: (r) => fmtTime(r.punch_time) },
-            { key: 'employee', label: 'Employee', render: (r) => r.employee?.trim() || <span className="muted">Unknown (PIN {r.pin})</span> },
+            { key: 'punch_time', label: 'Time', render: (r) => <span className="mono">{fmtTime(r.punch_time)}</span> },
+            { key: 'employee', label: 'Employee', render: (r) => r.employee?.trim() || <span className="muted">Unlinked (PIN {r.pin})</span> },
             { key: 'emp_code', label: 'PIN' },
             { key: 'method', label: 'Method', render: (r) => <Badge value={r.method} kind={r.method} /> },
           ]}
         />
       </Card>
+
+      {drill && (
+        <Drawer title={drill.title} sub={drill.sub} onClose={() => setDrill(null)}>
+          {drill.list.length === 0
+            ? <div className="empty">Nobody here right now.</div>
+            : drill.list.map((r) => (
+                <PersonRow key={r.employee_id} name={fullName(r)} meta={r.department || `PIN ${r.emp_code}`} right={drill.right?.(r)} />
+              ))}
+        </Drawer>
+      )}
     </>
   );
 }
