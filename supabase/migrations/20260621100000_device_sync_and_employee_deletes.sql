@@ -31,8 +31,10 @@ alter table temporary_schedules drop constraint if exists temporary_schedules_em
 alter table temporary_schedules add  constraint temporary_schedules_employee_id_fkey
   foreign key (employee_id) references employees(id) on delete cascade;
 
--- 3) Surface the last user-sync time in the device-health view.
-create or replace view v_device_health with (security_invoker = true) as
+-- 3) Surface the last user-sync time in the device-health view. Drop first:
+--    CREATE OR REPLACE VIEW can't insert columns mid-list on an existing view.
+drop view if exists v_device_health;
+create view v_device_health with (security_invoker = true) as
   select sn, name, ip, firmware, last_seen, last_user_sync, last_user_sync_count,
          extract(epoch from (now() - last_seen))::int as seconds_since_seen,
          (last_seen is not null and now() - last_seen < interval '2 minutes') as online
