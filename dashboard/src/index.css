@@ -221,6 +221,9 @@ td strong{font-weight:600;color:var(--text)}
 .mini-bar .track{width:52px;height:6px;border-radius:999px;background:var(--surface-3);overflow:hidden;flex-shrink:0}
 .mini-bar .track i{display:block;height:100%;border-radius:999px}
 .mini-bar .pct{font-family:var(--mono);font-variant-numeric:tabular-nums;min-width:32px;text-align:right;color:var(--text)}
+.flag{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;font-weight:500;padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);white-space:nowrap}
+.flag .d{width:6px;height:6px;border-radius:999px;background:var(--dim);flex-shrink:0}
+.flag.danger .d{background:var(--danger)} .flag.warn .d{background:var(--warn)} .flag.info .d{background:var(--accent)} .flag.sky .d{background:var(--sky)}
 th.sortable{cursor:pointer;user-select:none}
 .th-in{display:inline-flex;align-items:center;gap:5px}
 th.num .th-in{flex-direction:row-reverse}

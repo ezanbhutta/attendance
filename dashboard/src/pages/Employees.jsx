@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, Archive, RotateCcw } from 'lucide-react';
+import { Search, Plus, Archive, RotateCcw, Upload } from 'lucide-react';
 import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { Card, Field, Table, ConfirmButton, ErrorBanner, Badge } from '../components/ui.jsx';
@@ -25,9 +25,22 @@ export default function Employees() {
 
   const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', shift_id: '' });
   const [err, setErr] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [q, setQ] = useState('');
   const [archived, setArchived] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  // Send name, PIN and card to the device through the catcher. Face and
+  // fingerprint are enrolled at the device, so they are never sent.
+  async function pushToDevice(r) {
+    setErr(null); setNotice(null);
+    const name = `${r.first_name} ${r.last_name ?? ''}`.trim();
+    const card_no = methodMap[r.id]?.card_no ?? null;
+    const { error } = await supabase.from('device_user_pushes')
+      .insert({ device_sn: DEVICE_SN, pin: r.emp_code, name, card_no });
+    if (error) return setErr(error);
+    setNotice(`Sent ${name || `PIN ${r.emp_code}`} to the device. Name, PIN${card_no ? ' and card' : ''} will be set on the next sync. Face and fingerprint are enrolled at the device.`);
+  }
 
   async function addEmp(e) {
     e.preventDefault(); setErr(null);
@@ -85,6 +98,7 @@ export default function Employees() {
         </div>
       </div>
       <ErrorBanner error={err || emps.error} />
+      {notice && <div className="callout ok" role="status">{notice}</div>}
 
       {unknown.data?.length > 0 && (
         <div className="callout warn">
@@ -93,7 +107,7 @@ export default function Employees() {
         </div>
       )}
 
-      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card.">
+      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card. To device sends a person's name, PIN and card to the scanner; face and fingerprint are enrolled at the device.">
         <div className="toolbar">
           <span className="search-wrap">
             <Search size={16} className="search-ico" />
@@ -163,7 +177,10 @@ export default function Employees() {
                   <ConfirmButton onConfirm={() => delEmp(r.id)} />
                 </span>
               ) : (
-                <button className="btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive and stop counting until you bring them back"><Archive size={13} /> Archive</button>
+                <span className="inline-actions">
+                  <button className="btn sm" onClick={() => pushToDevice(r)} title="Send this person's name, PIN and card to the device"><Upload size={13} /> To device</button>
+                  <button className="btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive and stop counting until you bring them back"><Archive size={13} /> Archive</button>
+                </span>
               )
             ) },
           ]}

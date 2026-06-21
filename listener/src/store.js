@@ -121,7 +121,32 @@ function createStore(config) {
     }
   }
 
-  return { insertPunches, updateDeviceStatus, importDeviceUsers, recordUserSync, claimSyncRequests };
+  // Claim pending "push to device" rows (created by the dashboard's "To device"
+  // button). Marks them done and returns the people to enroll, so the server can
+  // ask the device to set each one's name, PIN and card. Best-effort; never throws.
+  async function claimUserPushes(deviceSn) {
+    try {
+      const { data, error } = await supabase
+        .from('device_user_pushes')
+        .select('id,pin,name,card_no')
+        .is('done_at', null)
+        .eq('device_sn', deviceSn)
+        .limit(50);
+      if (error) throw new Error(error.message);
+      if (!data || !data.length) return [];
+      const ids = data.map((r) => r.id);
+      const now = new Date().toISOString();
+      await supabase.from('device_user_pushes')
+        .update({ picked_up_at: now, done_at: now })
+        .in('id', ids);
+      return data.map((r) => ({ pin: r.pin, name: r.name, card: r.card_no }));
+    } catch (e) {
+      log.warn('user-push poll skipped:', e.message);
+      return [];
+    }
+  }
+
+  return { insertPunches, updateDeviceStatus, importDeviceUsers, recordUserSync, claimSyncRequests, claimUserPushes };
 }
 
 module.exports = { createStore };

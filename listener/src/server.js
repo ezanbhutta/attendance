@@ -58,6 +58,12 @@ function main() {
       app.requestUserSync();
       app.requestHistorySync();
     }
+    // "To device" button → enroll name/PIN/card on the device.
+    const pushes = await store.claimUserPushes(config.deviceSn);
+    if (pushes.length) {
+      log.info(`web push requested (${pushes.length}); queuing device enroll`);
+      for (const u of pushes) app.pushUser(u);
+    }
   }, syncPollMs);
   syncTimer.unref();
 

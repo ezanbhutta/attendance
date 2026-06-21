@@ -225,6 +225,22 @@ function createApp({ config, store, buffer }) {
   app.requestUserSync = () => enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
   app.requestHistorySync = () => enqueueCommand(config.attlogSyncCommand || 'DATA QUERY ATTLOG');
 
+  // Enroll (or update) one person on the device: name, PIN and card only. Face
+  // and fingerprint must be captured at the device, so they are never sent. The
+  // device applies this on its next poll (spec §3.6, DATA UPDATE USERINFO).
+  app.pushUser = ({ pin, name, card }) => {
+    const clean = (s) => String(s == null ? '' : s).replace(/[\t\r\n]/g, ' ').trim();
+    const fields = [
+      `PIN=${clean(pin)}`,
+      `Name=${clean(name)}`,
+      `Pri=0`,
+      `Passwd=`,
+      `Card=${clean(card)}`,
+      `Grp=1`,
+    ];
+    return enqueueCommand(`DATA UPDATE USERINFO ${fields.join('\t')}`);
+  };
+
   // Express 5 catch-all (spec gotcha: '/{*splat}', not '*'). Ack anything else.
   app.all('/{*splat}', (_req, res) => res.type('text/plain').send('OK'));
 

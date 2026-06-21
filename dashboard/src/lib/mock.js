@@ -130,6 +130,17 @@ for (const p of ROSTER) {
   for (let back = 1; back <= 29; back++) daily.push(historyRow(p, back));
 }
 
+// Seed one of each anomaly on past days so the Anomalies page shows every kind.
+const tweak = (empId, back, patch) => {
+  const row = daily.find((r) => r.employee_id === empId && r.work_date === dateISO(back));
+  if (row) Object.assign(row, patch);
+};
+tweak(3, 4, { status: 'Incomplete', first_in: ts(dateISO(4), 9, 2), last_out: null, late_minutes: 0, worked_minutes: null }); // No scan out
+tweak(6, 6, { status: 'Incomplete', first_in: ts(dateISO(6), 9, 0), last_out: null, late_minutes: 0, worked_minutes: null }); // No scan out
+tweak(2, 5, { status: 'Present', first_in: ts(dateISO(5), 9, 5), last_out: ts(dateISO(5), 11, 30), late_minutes: 0, worked_minutes: 145 }); // Short shift
+tweak(8, 7, { status: 'Present', first_in: ts(dateISO(7), 8, 55), last_out: ts(dateISO(7), 22, 10), late_minutes: 0, worked_minutes: 13 * 60 + 15, overtime_minutes: 5 * 60 }); // Long shift
+tweak(10, 3, { status: 'Present', first_in: ts(dateISO(3), 10, 30), last_out: ts(dateISO(3), 15, 0), late_minutes: 0, scheduled_in: null, scheduled_out: null, worked_minutes: 4 * 60 + 30 }); // Came on day off
+
 const employees = ROSTER.map((p) => ({
   id: p.id, emp_code: code(p.id), first_name: p.first, last_name: p.last,
   track_attendance: p.track !== false, weekly_off: p.woff,

@@ -14,6 +14,7 @@ const NAV = [
   ['/org', 'Departments'],
   ['/shifts', 'Shifts'],
   ['/reports', 'Reports'],
+  ['/anomalies', 'Anomalies'],
   ['/corrections', 'Fix a punch'],
   ['/calendar', 'Leave & Holidays'],
   ...(IS_DESKTOP ? [['/settings', 'Settings']] : []),
