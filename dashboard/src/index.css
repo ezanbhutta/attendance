@@ -127,6 +127,7 @@ p{margin:0}
 
 /* ─── Cards ─────────────────────────────────────────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-sm);margin-bottom:22px;overflow:hidden}
+.card.overflow-visible{overflow:visible}
 .card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--hairline);flex-wrap:wrap}
 .card-head h2{font-size:1rem;display:flex;align-items:center;gap:7px}
 .card-head .sub{font-size:.8rem;color:var(--muted);margin-top:3px;font-weight:400}
@@ -246,6 +247,30 @@ td strong{font-weight:600;color:var(--text)}
 .search-wrap .search-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--dim);pointer-events:none}
 .search-wrap .search{width:100%;padding-left:36px}
 .search{min-width:230px}
+
+/* ─── Date-range picker (presets + range calendar) ─────────────────────── */
+.drp{position:relative}
+.drp-trigger{display:inline-flex;align-items:center;gap:8px;min-height:var(--tap);padding:8px 14px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);font:inherit;font-size:.9rem;font-weight:500;color:var(--text);cursor:pointer}
+.drp-trigger:hover{border-color:var(--border-hi);background:var(--surface-2)}
+.drp-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:45;display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-lg);overflow:hidden;animation:fade .14s ease}
+.drp-presets{display:flex;flex-direction:column;gap:2px;padding:10px;border-right:1px solid var(--hairline);min-width:128px}
+.drp-presets button{text-align:left;background:none;border:none;padding:8px 11px;border-radius:var(--r-sm);font:inherit;font-size:.85rem;font-weight:500;color:var(--muted);cursor:pointer}
+.drp-presets button:hover{background:var(--surface-2);color:var(--text)}
+.drp-cal{padding:13px 15px;width:282px}
+.drp-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.drp-cal-head span{font-weight:600;font-size:.9rem;font-family:var(--disp);letter-spacing:-.01em}
+.drp-cal-head button{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px;display:grid;place-items:center}
+.drp-cal-head button:hover{background:var(--surface-2);color:var(--text)}
+.drp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.drp-dow{text-align:center;font-family:var(--mono);font-size:.6rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;padding-bottom:7px}
+.drp-day{aspect-ratio:1;border:none;background:none;border-radius:7px;font:inherit;font-size:.82rem;color:var(--text);cursor:pointer;display:grid;place-items:center;position:relative}
+.drp-day:hover{background:var(--surface-2)}
+.drp-day.today{font-weight:700;color:var(--accent)}
+.drp-day.in{background:var(--accent-weak);border-radius:0;color:var(--accent)}
+.drp-day.sel{background:var(--accent);color:var(--on-accent);font-weight:600}
+.drp-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px;padding-top:11px;border-top:1px solid var(--hairline)}
+.drp-range{font-size:.82rem;color:var(--muted);font-family:var(--mono)}
+@media (max-width:560px){.drp-presets{display:none}.drp-cal{width:260px}}
 
 /* ─── Report summary / CEO trend ───────────────────────────────────────── */
 .report-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:22px}

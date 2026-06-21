@@ -5,6 +5,7 @@ import { fmtTime, minutesToHM, fmtDate, todayISO, daysAgoISO } from '../lib/form
 import { downloadCSV } from '../lib/csv';
 import { Download, Printer, UserCheck, UserX, Clock, Plane, Timer, TrendingUp } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
+import DateRangePicker from '../components/DateRangePicker.jsx';
 import PrintHeader from '../components/PrintHeader.jsx';
 
 const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'WeeklyOff'];
@@ -104,6 +105,12 @@ export default function Reports() {
     { key: 'absent', label: 'Absent', num: true },
     { key: 'incomplete', label: 'Incomplete', num: true },
     { key: 'leave', label: 'Leave', num: true },
+    { key: 'attendance', label: 'Attendance', num: true,
+      render: (r) => { const s = r.present + r.incomplete + r.absent; return s ? `${Math.round(((r.present + r.incomplete) / s) * 100)}%` : '—'; },
+      csv: (r) => { const s = r.present + r.incomplete + r.absent; return s ? Math.round(((r.present + r.incomplete) / s) * 100) : ''; } },
+    { key: 'punctual', label: 'On-time', num: true,
+      render: (r) => { const a = r.present + r.incomplete; return a ? `${Math.round(((a - r.late) / a) * 100)}%` : '—'; },
+      csv: (r) => { const a = r.present + r.incomplete; return a ? Math.round(((a - r.late) / a) * 100) : ''; } },
     { key: 'late', label: 'Late days', num: true },
     { key: 'lateMin', label: 'Late', num: true, render: (r) => minutesToHM(r.lateMin), csv: (r) => r.lateMin },
     { key: 'worked', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked), csv: (r) => r.worked },
@@ -148,10 +155,9 @@ export default function Reports() {
         ))}
       </div>
 
-      <Card className="no-print">
+      <Card className="no-print overflow-visible">
         <div className="row">
-          <Field label="From"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-          <Field label="To"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+          <Field label="Date range"><DateRangePicker from={from} to={to} onApply={(f, t) => { setFrom(f); setTo(t); }} /></Field>
           <Field label="Department">
             <select value={dept} onChange={(e) => setDept(e.target.value)}>
               <option value="">All</option>
@@ -191,7 +197,8 @@ export default function Reports() {
       </div>
 
       <ErrorBanner error={report.error} />
-      <Card title={`${viewLabel} · ${fmtDate(from)} – ${fmtDate(to)}`}>
+      <Card title={`${viewLabel} · ${fmtDate(from)} – ${fmtDate(to)}`} help="In grouped views, Attendance % = days present ÷ days scheduled, and On-time % = of the days attended, how many were not late. Export the exact rows as CSV or a clean PDF.">
+
         <Table loading={report.loading} rows={data} columns={cols} empty="No rows for this range / filter." />
       </Card>
     </>
