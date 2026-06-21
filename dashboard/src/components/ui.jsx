@@ -92,18 +92,67 @@ export function Badge({ value, kind }) {
   return <span className={`badge ${kind ?? value}`}><span className="dot" aria-hidden />{value}</span>;
 }
 
-// Generic table. columns: [{ key, label, num?, render?(row), get?(row) }]
+function SortArrow({ dir }) {
+  return (
+    <span className="sort-arrow" aria-hidden>
+      <svg width="8" height="12" viewBox="0 0 8 12">
+        <path d="M4 0 L7 4 L1 4 Z" className={dir === 'asc' ? 'on' : ''} />
+        <path d="M4 12 L1 8 L7 8 Z" className={dir === 'desc' ? 'on' : ''} />
+      </svg>
+    </span>
+  );
+}
+
+// Generic table. columns: [{ key, label, num?, render?(row), get?(row), sort?(row), sortable? }]
+// Click a header to sort (asc → desc → off). Sorting is on by default for any
+// labelled column; pass sortable:false to opt a column out (e.g. an actions col).
 export function Table({ columns, rows, loading, empty = 'Nothing here yet.' }) {
+  const [sort, setSort] = useState(null); // { key, dir }
   if (loading) return <Spinner />;
   if (!rows || rows.length === 0) return <div className="empty">{empty}</div>;
+
+  const value = (c, r) => (c.sort ? c.sort(r) : c.get ? c.get(r) : r[c.key]);
+  const canSort = (c) => c.sortable !== false && c.key !== 'act' && (c.label ?? c.key) !== '';
+
+  let data = rows;
+  if (sort) {
+    const col = columns.find((c) => c.key === sort.key);
+    if (col) {
+      const sign = sort.dir === 'asc' ? 1 : -1;
+      data = [...rows].sort((a, b) => {
+        const x = value(col, a), y = value(col, b);
+        if (x == null && y == null) return 0;
+        if (x == null) return 1;
+        if (y == null) return -1;
+        if (typeof x === 'number' && typeof y === 'number') return (x - y) * sign;
+        return String(x).localeCompare(String(y), undefined, { numeric: true }) * sign;
+      });
+    }
+  }
+
+  const toggle = (c) => {
+    if (!canSort(c)) return;
+    setSort((s) => (s && s.key === c.key ? (s.dir === 'asc' ? { key: c.key, dir: 'desc' } : null) : { key: c.key, dir: 'asc' }));
+  };
+
   return (
     <div className="table-wrap">
       <table>
         <thead>
-          <tr>{columns.map((c) => <th key={c.key} className={c.num ? 'num' : ''}>{c.label ?? c.key}</th>)}</tr>
+          <tr>{columns.map((c) => {
+            const sortable = canSort(c);
+            const active = sort?.key === c.key;
+            return (
+              <th key={c.key} className={`${c.num ? 'num' : ''}${sortable ? ' sortable' : ''}${active ? ' sorted' : ''}`}
+                  onClick={sortable ? () => toggle(c) : undefined}
+                  aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                <span className="th-in">{c.label ?? c.key}{sortable && <SortArrow dir={active ? sort.dir : null} />}</span>
+              </th>
+            );
+          })}</tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
+          {data.map((r, i) => (
             <tr key={r.id ?? i}>
               {columns.map((c) => (
                 <td key={c.key} className={c.num ? 'num' : ''}>

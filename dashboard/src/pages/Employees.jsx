@@ -110,7 +110,7 @@ export default function Employees() {
           empty={term ? 'No matches.' : archived ? 'Nobody archived.' : 'No employees yet — click Sync to import them from the device.'}
           columns={[
             { key: 'emp_code', label: 'PIN', render: (r) => <span className="mono">{r.emp_code}</span> },
-            { key: 'name', label: 'Name', render: (r) => {
+            { key: 'name', label: 'Name', sort: (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim(), render: (r) => {
               const full = `${r.first_name} ${r.last_name ?? ''}`.trim();
               return (
                 <input className="compact name-edit" defaultValue={full} aria-label="Name"
@@ -118,7 +118,7 @@ export default function Employees() {
                   onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== full) saveName(r.id, v); }} />
               );
             } },
-            { key: 'methods', label: 'Methods', render: (r) => {
+            { key: 'methods', label: 'Methods', sortable: false, render: (r) => {
               const m = methodMap[r.id];
               if (!m || (!m.has_face && !m.has_finger && !m.has_card)) return <span className="muted">—</span>;
               return (
@@ -129,7 +129,7 @@ export default function Employees() {
                 </span>
               );
             } },
-            { key: 'department', label: 'Department', render: (r) => (
+            { key: 'department', label: 'Department', sort: (r) => r.department?.name ?? '', render: (r) => (
               <select className="compact" value={r.department_id ?? ''} onChange={(e) => updateEmp(r.id, { department_id: e.target.value || null })}>
                 <option value="">—</option>
                 {deptOpts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}

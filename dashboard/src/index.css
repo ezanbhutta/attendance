@@ -214,6 +214,14 @@ tbody tr.row-click{cursor:pointer}
 td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 td.mono{font-family:var(--mono);color:var(--text)}
 td strong{font-weight:600;color:var(--text)}
+th.sortable{cursor:pointer;user-select:none}
+.th-in{display:inline-flex;align-items:center;gap:5px}
+th.num .th-in{flex-direction:row-reverse}
+.sort-arrow{display:inline-flex;line-height:0;flex-shrink:0}
+.sort-arrow svg path{fill:var(--dim);opacity:.4;transition:fill .12s,opacity .12s}
+th.sortable:hover .sort-arrow svg path{opacity:.7}
+.sort-arrow svg path.on{fill:var(--accent);opacity:1}
+th.sorted{color:var(--text)}
 
 /* ─── Badges ────────────────────────────────────────────────────────────── */
 .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.74rem;font-weight:500;
