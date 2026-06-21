@@ -1,0 +1,24 @@
+# Render Blueprint — deploys the catcher (listener) as an always-on web service.
+# The device pushes to https://<service>.onrender.com/iclock/... over HTTPS.
+# Keep it awake with an UptimeRobot monitor on /healthz (the device's own
+# heartbeats also keep it warm once connected).
+services:
+  - type: web
+    name: attendance-catcher
+    runtime: node
+    rootDir: listener
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: DEVICE_SN
+        value: NYU7253801246
+      - key: DEVICE_TZ_OFFSET
+        value: "+05:00"
+      # Secrets — entered in the Render dashboard at deploy (never stored in git):
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
