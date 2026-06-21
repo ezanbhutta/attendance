@@ -22,8 +22,19 @@ export default function Org() {
     if (error) return setErr(error);
     setGroup(''); groups.refetch();
   }
+  // Turn a raw foreign-key error into a plain-language message. (After the
+  // delete-rules DB update, deletes succeed by unassigning; this is the
+  // safety net for any still-blocked case.)
+  function friendly(error, table) {
+    const msg = `${error?.message || ''} ${error?.details || ''}`;
+    if (error?.code === '23503' || /foreign key/i.test(msg)) {
+      const thing = table === 'departments' ? 'department' : 'group';
+      return { message: `Can’t delete this ${thing} — it’s still in use by employees or schedules. Move them to another ${thing} first, or apply the latest database update so deletes unassign automatically.` };
+    }
+    return error;
+  }
   const del = (table, q, refetch) => async () => {
-    const { error } = await q; if (error) return setErr(error); refetch();
+    const { error } = await q; if (error) return setErr(friendly(error, table)); refetch();
   };
 
   return (

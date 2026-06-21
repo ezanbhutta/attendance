@@ -16,7 +16,7 @@
 create table if not exists departments (
   id bigint generated always as identity primary key,
   name text not null,
-  parent_id bigint references departments(id),
+  parent_id bigint references departments(id) on delete set null,
   brand text,
   created_at timestamptz default now());
 
@@ -29,8 +29,8 @@ create table if not exists employees (
   emp_code text unique not null,
   first_name text not null,
   last_name text,
-  department_id bigint references departments(id),
-  group_id bigint references groups(id),
+  department_id bigint references departments(id) on delete set null,
+  group_id bigint references groups(id) on delete set null,
   active boolean default true,
   hire_date date,
   created_at timestamptz default now());
@@ -118,12 +118,12 @@ create table if not exists employee_schedules (
 
 create table if not exists group_schedules (
   id bigint generated always as identity primary key,
-  group_id bigint references groups(id), shift_id bigint references shifts(id),
+  group_id bigint references groups(id) on delete cascade, shift_id bigint references shifts(id),
   start_date date, end_date date);
 
 create table if not exists department_schedules (
   id bigint generated always as identity primary key,
-  department_id bigint references departments(id), shift_id bigint references shifts(id),
+  department_id bigint references departments(id) on delete cascade, shift_id bigint references shifts(id),
   start_date date, end_date date);
 
 create table if not exists temporary_schedules (
