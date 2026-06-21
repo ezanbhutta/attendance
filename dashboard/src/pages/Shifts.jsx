@@ -7,10 +7,10 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function Shifts() {
   const tts = useQuery(() => supabase.from('timetables')
-    .select('id,name,check_in,check_out,late_grace_min,early_leave_grace_min').order('name'), []);
+    .select('id,name,check_in,check_out,late_grace_min,early_leave_grace_min,next_day').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
   const [err, setErr] = useState(null);
-  const [tt, setTt] = useState({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10 });
+  const [tt, setTt] = useState({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false });
   const [shiftName, setShiftName] = useState('');
   const [selShift, setSelShift] = useState('');
 
@@ -26,7 +26,7 @@ export default function Shifts() {
     e.preventDefault(); setErr(null);
     const { error } = await supabase.from('timetables').insert({ ...tt, work_minutes: null });
     if (error) return setErr(error);
-    setTt({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10 });
+    setTt({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false });
     tts.refetch();
   }
   async function updTt(id, patch) {
@@ -71,13 +71,19 @@ export default function Shifts() {
       </div>
       <ErrorBanner error={err} />
 
-      <Card title="Timetables" help="A timetable defines one day’s hours: when work starts and ends, plus how many minutes of grace before someone counts as late or as leaving early.">
+      <Card title="Timetables" help="A timetable defines one day’s hours: when work starts and ends, plus the minutes of grace before someone counts as late or as leaving early. For a night shift that runs after midnight but belongs to the night before, like 01:00 to 09:00 worked as the previous day’s shift, set Counts for to Previous day.">
         <form onSubmit={addTt} className="row" style={{ marginBottom: 18 }}>
           <Field label="Name *"><input required value={tt.name} onChange={(e) => setTt({ ...tt, name: e.target.value })} placeholder="General 9 to 6" /></Field>
           <Field label="Check-in"><input type="time" value={tt.check_in} onChange={(e) => setTt({ ...tt, check_in: e.target.value })} /></Field>
           <Field label="Check-out"><input type="time" value={tt.check_out} onChange={(e) => setTt({ ...tt, check_out: e.target.value })} /></Field>
           <Field label="Late grace (min)"><input type="number" min="0" value={tt.late_grace_min} onChange={(e) => setTt({ ...tt, late_grace_min: +e.target.value })} /></Field>
           <Field label="Early-leave grace"><input type="number" min="0" value={tt.early_leave_grace_min} onChange={(e) => setTt({ ...tt, early_leave_grace_min: +e.target.value })} /></Field>
+          <Field label="Counts for">
+            <select value={tt.next_day ? '1' : '0'} onChange={(e) => setTt({ ...tt, next_day: e.target.value === '1' })}>
+              <option value="0">This day</option>
+              <option value="1">Previous day</option>
+            </select>
+          </Field>
           <button className="btn primary">Add</button>
         </form>
         <Table
@@ -88,7 +94,13 @@ export default function Shifts() {
             { key: 'check_out', label: 'Out', render: (r) => <InlineEdit type="time" value={r.check_out} onSave={(v) => updTt(r.id, { check_out: v })} /> },
             { key: 'late_grace_min', label: 'Late grace', num: true, render: (r) => <InlineEdit type="number" value={r.late_grace_min} onSave={(v) => updTt(r.id, { late_grace_min: v })} /> },
             { key: 'early_leave_grace_min', label: 'Early grace', num: true, render: (r) => <InlineEdit type="number" value={r.early_leave_grace_min} onSave={(v) => updTt(r.id, { early_leave_grace_min: v })} /> },
-            { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={async () => { const { error } = await supabase.from('timetables').delete().eq('id', r.id); if (error) setErr(error); else tts.refetch(); }} /> },
+            { key: 'next_day', label: 'Counts for', render: (r) => (
+              <select className="compact" value={r.next_day ? '1' : '0'} onChange={(e) => updTt(r.id, { next_day: e.target.value === '1' })}>
+                <option value="0">This day</option>
+                <option value="1">Previous day</option>
+              </select>
+            ) },
+            { key: 'act', label: '', sortable: false, render: (r) => <ConfirmButton onConfirm={async () => { const { error } = await supabase.from('timetables').delete().eq('id', r.id); if (error) setErr(error); else tts.refetch(); }} /> },
           ]}
         />
       </Card>

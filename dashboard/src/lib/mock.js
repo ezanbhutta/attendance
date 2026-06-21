@@ -181,8 +181,9 @@ const F = {
     { employee_id: 5, has_face: true,  has_finger: false, has_card: true,  card_no: '0044190' },
   ],
   timetables: [
-    { id: 1, name: 'General 09 to 17', check_in: '09:00', check_out: '17:00', late_grace_min: 10, early_leave_grace_min: 10 },
-    { id: 2, name: 'Night 21 to 06',   check_in: '21:00', check_out: '06:00', late_grace_min: 10, early_leave_grace_min: 10 },
+    { id: 1, name: 'General 09 to 17', check_in: '09:00', check_out: '17:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false },
+    { id: 2, name: 'Evening 17 to 01', check_in: '17:00', check_out: '01:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false },
+    { id: 3, name: 'Night 01 to 09',   check_in: '01:00', check_out: '09:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: true },
   ],
   shift_details: [
     { id: 1, shift_id: 1, day_index: 1, timetable_id: 1 },
