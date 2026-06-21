@@ -2,7 +2,7 @@
 
 const express = require('express');
 const log = require('./log');
-const { parseAttlog, toTimestamptz, parseInfo } = require('./parser');
+const { parseAttlog, toTimestamptz, parseInfo, parseUserinfo } = require('./parser');
 
 // CONFIRMED working handshake reply (spec §3.2). Stamp=0 requests all buffered
 // records; the rest configures realtime per-punch upload in Pakistan time.
@@ -51,6 +51,35 @@ function createApp({ config, store, buffer }) {
       lastTouchAt = now;
       store.updateDeviceStatus(SN, info || null); // fire-and-forget; never throws
     }
+  }
+
+  // ── Device command queue (ADMS server commands, spec §3.6) ──────────────────
+  // We answer the device's getrequest poll with 'C:<id>:<cmd>' to ask it to do
+  // something. We use it to pull the device's user list: 'DATA QUERY USERINFO'
+  // makes the device upload all its users to POST /iclock/cdata, which we then
+  // import. Commands are served once (FIFO); the device reports completion to
+  // /iclock/devicecmd.
+  let cmdSeq = 0;
+  const cmdQueue = [];
+  function enqueueCommand(cmd) {
+    cmdSeq += 1;
+    cmdQueue.push({ id: cmdSeq, cmd });
+    log.info(`queued device command #${cmdSeq}: ${cmd}`);
+    return cmdSeq;
+  }
+
+  // Parse + import any user records in an uploaded body, and stamp the sync time.
+  async function importUsers(body, source) {
+    const users = parseUserinfo(body);
+    if (!users.length) return false;
+    try {
+      const r = await store.importDeviceUsers(SN, users);
+      await store.recordUserSync(SN, r.seen);
+      log.info(`${source}: ${r.seen} device user(s) received, ${r.added} new imported`);
+    } catch (e) {
+      log.error(`user import (${source}) failed:`, e.message);
+    }
+    return true;
   }
 
   // Turn an ATTLOG body into DB-ready rows. Each row's punch_time is normalized
@@ -123,10 +152,14 @@ function createApp({ config, store, buffer }) {
         }
         log.info(`ATTLOG: ${valid.length} punch(es) -> ${stored}`);
       }
+    } else if (table === 'USERINFO') {
+      // The device's reply to DATA QUERY USERINFO: its full user list.
+      if (!(await importUsers(body, 'USERINFO'))) log.info('USERINFO push had no users');
     } else if (table === 'OPERLOG') {
-      // Phase 2 (spec §9): card taps / access events surface here, not in ATTLOG.
-      // Retained for the future door-access log; ignored for attendance now.
-      log.info('OPERLOG received (Stage 1: ignored)');
+      // OPERLOG carries operation logs; some firmware also returns USER records
+      // here after a user query. Import any users present; otherwise ignore
+      // (card taps / access events are Phase 2, spec §9).
+      if (!(await importUsers(body, 'OPERLOG'))) log.info('OPERLOG received (no user records)');
     } else {
       log.info(`POST /iclock/cdata table='${table}' (no-op)`);
     }
@@ -138,13 +171,20 @@ function createApp({ config, store, buffer }) {
   app.get('/iclock/getrequest', (req, res) => {
     if (!guard(req, res)) return;
     touchDevice(req.query.INFO ? parseInfo(req.query.INFO) : null);
-    // Phase 3 (spec §3.6): return queued 'C:<id>:<cmd>' lines here to push users.
+    if (cmdQueue.length) {
+      const { id, cmd } = cmdQueue.shift();
+      log.info(`sending command #${id} to device: ${cmd}`);
+      return res.type('text/plain').send(`C:${id}:${cmd}\n`);
+    }
     res.type('text/plain').send('OK');
   });
 
-  // Device returns command results here (Phase 3). Ack for now.
+  // Device reports command results here. Log them (useful when diagnosing a sync)
+  // and ack so the device clears the command.
   app.post('/iclock/devicecmd', (req, res) => {
     if (!guard(req, res)) return;
+    const body = req.body ? req.body.toString('utf8').trim() : '';
+    if (body) log.info(`devicecmd result: ${body.replace(/\s+/g, ' ').slice(0, 200)}`);
     res.type('text/plain').send('OK');
   });
 
@@ -162,10 +202,22 @@ function createApp({ config, store, buffer }) {
         ok: true,
         device_sn: SN,
         buffered_punches: buffer.pendingCount(),
+        pending_commands: cmdQueue.length,
         time: new Date().toISOString(),
       })
     );
   });
+
+  // Manually re-pull the device's users (LAN-only; the device does the upload on
+  // its next poll). Handy for a "Sync now" button or a quick test.
+  app.get('/admin/sync-users', (_req, res) => {
+    const id = enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
+    res.type('application/json').send(JSON.stringify({ queued: true, command_id: id }));
+  });
+
+  // Ask the device to upload all its users on its next poll. Called on startup
+  // so every catcher start re-imports everyone (spec: auto-sync on start).
+  app.requestUserSync = () => enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
 
   // Express 5 catch-all (spec gotcha: '/{*splat}', not '*'). Ack anything else.
   app.all('/{*splat}', (_req, res) => res.type('text/plain').send('OK'));

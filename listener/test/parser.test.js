@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseAttlog, toTimestamptz, parseInfo } = require('../src/parser');
+const { parseAttlog, toTimestamptz, parseInfo, parseUserinfo } = require('../src/parser');
 
 test('parseAttlog: confirmed TAB form, FACE punch (spec §3.3)', () => {
   const line = '2\t2026-06-20 11:49:05\t255\t15\t0\t0\t0\t0\t283';
@@ -59,4 +59,27 @@ test('parseInfo: pulls firmware and IP from the heartbeat string (spec §3.5)', 
 test('parseInfo: empty / non-string returns null', () => {
   assert.equal(parseInfo(''), null);
   assert.equal(parseInfo(undefined), null);
+});
+
+test('parseUserinfo: USER records with names that contain spaces', () => {
+  const body =
+    'USER PIN=2\tName=Ezan Mujahid\tPri=14\tCard=123\tGrp=1\n' +
+    'USER PIN=7\tName=Urooj Iqbal\tPri=0\tCard=0';
+  const u = parseUserinfo(body);
+  assert.equal(u.length, 2);
+  assert.deepEqual(u[0], { pin: '2', name: 'Ezan Mujahid', card: '123', privilege: 14 });
+  assert.equal(u[1].card, null);          // Card=0 -> no card
+});
+
+test('parseUserinfo: tolerates missing USER prefix when PIN= and Name= present', () => {
+  const u = parseUserinfo('PIN=9\tName=Zainab');
+  assert.equal(u.length, 1);
+  assert.equal(u[0].pin, '9');
+  assert.equal(u[0].name, 'Zainab');
+});
+
+test('parseUserinfo: ignores non-user lines and blanks', () => {
+  assert.deepEqual(parseUserinfo('OPLOG 1\t2\t3\n\n'), []);
+  assert.deepEqual(parseUserinfo(''), []);
+  assert.deepEqual(parseUserinfo(null), []);
 });

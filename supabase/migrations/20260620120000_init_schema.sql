@@ -32,12 +32,14 @@ create table if not exists devices (
   mac text,
   ip text,
   firmware text,
-  last_seen timestamptz);
+  last_seen timestamptz,
+  last_user_sync timestamptz,
+  last_user_sync_count int);
 
 create table if not exists device_user_map (
   device_sn text references devices(sn),
   pin text not null,
-  employee_id bigint references employees(id),
+  employee_id bigint references employees(id) on delete cascade,
   primary key (device_sn, pin));
 
 -- ─── RAW PUNCHES (immutable, append-only) ───────────────────────────────────
@@ -103,7 +105,7 @@ create table if not exists shift_details (
 -- ─── SCHEDULES (priority: temporary > employee > group > department > global) ─
 create table if not exists employee_schedules (
   id bigint generated always as identity primary key,
-  employee_id bigint references employees(id), shift_id bigint references shifts(id),
+  employee_id bigint references employees(id) on delete cascade, shift_id bigint references shifts(id),
   start_date date, end_date date);
 
 create table if not exists group_schedules (
@@ -118,7 +120,7 @@ create table if not exists department_schedules (
 
 create table if not exists temporary_schedules (
   id bigint generated always as identity primary key,
-  employee_id bigint references employees(id), shift_id bigint references shifts(id),
+  employee_id bigint references employees(id) on delete cascade, shift_id bigint references shifts(id),
   the_date date);
 
 -- ─── CALENDAR / EXCEPTIONS ──────────────────────────────────────────────────
@@ -128,20 +130,20 @@ create table if not exists holidays (
 
 create table if not exists leaves (
   id bigint generated always as identity primary key,
-  employee_id bigint references employees(id),
+  employee_id bigint references employees(id) on delete cascade,
   leave_type text, start_date date, end_date date,
   status text default 'approved');
 
 create table if not exists manual_logs (
   id bigint generated always as identity primary key,
-  employee_id bigint references employees(id),
+  employee_id bigint references employees(id) on delete cascade,
   punch_time timestamptz, status smallint, reason text,
   created_by text, created_at timestamptz default now());
 
 -- ─── DERIVED DAILY ATTENDANCE ───────────────────────────────────────────────
 create table if not exists attendance_daily (
   id bigint generated always as identity primary key,
-  employee_id bigint references employees(id),
+  employee_id bigint references employees(id) on delete cascade,
   work_date date not null,
   first_in timestamptz, last_out timestamptz,
   scheduled_in timestamptz, scheduled_out timestamptz,

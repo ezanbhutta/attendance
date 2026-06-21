@@ -28,6 +28,15 @@ function makeFakeStore() {
     async updateDeviceStatus(sn, info) {
       this.deviceUpdates.push({ sn, info });
     },
+    importedUsers: [],
+    syncStamps: [],
+    async importDeviceUsers(sn, users) {
+      this.importedUsers.push({ sn, users });
+      return { seen: users.length, added: users.length };
+    },
+    async recordUserSync(sn, count) {
+      this.syncStamps.push({ sn, count });
+    },
   };
 }
 
@@ -147,6 +156,40 @@ test('ping and unknown paths ack OK', async () => {
   try {
     assert.equal(await (await fetch(`${app.url}/iclock/ping?SN=${SN}`)).text(), 'OK');
     assert.equal(await (await fetch(`${app.url}/anything/else`)).text(), 'OK');
+  } finally {
+    await app.close();
+  }
+});
+
+test('queued user-sync command is served once on the next poll', async () => {
+  const app = await startApp();
+  try {
+    const q = await (await fetch(`${app.url}/admin/sync-users`)).json();
+    assert.equal(q.queued, true);
+    // First poll receives the command...
+    const first = await (await fetch(`${app.url}/iclock/getrequest?SN=${SN}`)).text();
+    assert.match(first, /^C:\d+:DATA QUERY USERINFO/);
+    // ...then the queue is empty again.
+    const second = await (await fetch(`${app.url}/iclock/getrequest?SN=${SN}`)).text();
+    assert.equal(second, 'OK');
+  } finally {
+    await app.close();
+  }
+});
+
+test('USERINFO upload is parsed and imported', async () => {
+  const app = await startApp();
+  try {
+    const body = 'USER PIN=2\tName=Ezan Mujahid\tPri=0\tCard=0\nUSER PIN=7\tName=Urooj Iqbal\tPri=0';
+    const res = await fetch(`${app.url}/iclock/cdata?SN=${SN}&table=USERINFO`, { method: 'POST', body });
+    assert.equal(await res.text(), 'OK');
+    assert.equal(app.store.importedUsers.length, 1);
+    const users = app.store.importedUsers[0].users;
+    assert.equal(users.length, 2);
+    assert.equal(users[0].pin, '2');
+    assert.equal(users[0].name, 'Ezan Mujahid');     // names with spaces survive
+    assert.equal(users[1].pin, '7');
+    assert.equal(app.store.syncStamps.length, 1);     // sync time recorded
   } finally {
     await app.close();
   }

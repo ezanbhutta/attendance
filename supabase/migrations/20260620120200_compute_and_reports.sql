@@ -300,7 +300,7 @@ create or replace view v_unknown_pins with (security_invoker = true) as
    group by 1, 2;
 
 create or replace view v_device_health with (security_invoker = true) as
-  select sn, name, ip, firmware, last_seen,
+  select sn, name, ip, firmware, last_seen, last_user_sync, last_user_sync_count,
          extract(epoch from (now() - last_seen))::int as seconds_since_seen,
          (last_seen is not null and now() - last_seen < interval '2 minutes') as online
     from devices;

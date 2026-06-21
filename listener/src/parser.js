@@ -72,4 +72,37 @@ function parseInfo(info) {
   };
 }
 
-module.exports = { parseAttlog, toTimestamptz, parseInfo };
+// Parse USERINFO records the device uploads in response to a
+// `DATA QUERY USERINFO` command (spec §3.6). Each record is one line, either
+//   USER PIN=1<TAB>Name=Ezan<TAB>Pri=0<TAB>Card=123<TAB>...
+// or (some firmware) without the leading "USER ". Fields are TAB-separated
+// key=value pairs; names may contain spaces, so we never split on spaces.
+// Returns [{ pin, name, card, privilege }] — best-effort, ignores non-user lines.
+function parseUserinfo(body) {
+  if (typeof body !== 'string') return [];
+  const users = [];
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const isUser = /^USER\s/i.test(line);
+    const stripped = line.replace(/^USER\s+/i, '');
+    // Qualify a line as a user record: explicit USER prefix, or it carries both
+    // PIN= and Name= (so generic OPERLOG lines aren't mistaken for users).
+    if (!isUser && !(/\bPIN=/i.test(stripped) && /\bName=/i.test(stripped))) continue;
+    const f = {};
+    for (const part of stripped.split('\t')) {
+      const eq = part.indexOf('=');
+      if (eq > 0) f[part.slice(0, eq).trim().toLowerCase()] = part.slice(eq + 1).trim();
+    }
+    if (!f.pin) continue;
+    users.push({
+      pin: f.pin,
+      name: f.name || '',
+      card: f.card && f.card !== '0' ? f.card : null,
+      privilege: f.pri !== undefined && f.pri !== '' ? (parseInt(f.pri, 10) || 0) : null,
+    });
+  }
+  return users;
+}
+
+module.exports = { parseAttlog, toTimestamptz, parseInfo, parseUserinfo };

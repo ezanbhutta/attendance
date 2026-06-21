@@ -1,7 +1,16 @@
 import { useState } from 'react';
-import { supabase, DEVICE_SN } from '../lib/supabase';
+import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { Card, Field, Table, ConfirmButton, ErrorBanner } from '../components/ui.jsx';
+
+// A foreign-key delete error, in plain words.
+function friendlyDelete(error) {
+  const msg = `${error?.message || ''} ${error?.details || ''}`;
+  if (error?.code === '23503' || /foreign key/i.test(msg)) {
+    return { message: 'Can’t delete this employee yet — apply the latest database update (so an employee’s attendance and mappings delete with them), then try again.' };
+  }
+  return error;
+}
 
 export default function Employees() {
   const emps = useQuery(() =>
@@ -15,6 +24,7 @@ export default function Employees() {
       .select('device_sn,pin,employee:employees(emp_code,first_name,last_name)')
       .order('pin'), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*').order('punches', { ascending: false }), []);
+  const health = useQuery(() => supabase.from('v_device_health').select('last_user_sync,last_user_sync_count').eq('sn', DEVICE_SN), []);
 
   const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', group_id: '' });
   const [map, setMap] = useState({ pin: '', employee_id: '' });
@@ -34,7 +44,7 @@ export default function Employees() {
 
   async function delEmp(id) {
     const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) return setErr(error);
+    if (error) return setErr(friendlyDelete(error));
     emps.refetch(); maps.refetch();
   }
 
@@ -56,9 +66,23 @@ export default function Employees() {
 
   const empName = (e) => e?.employee ? `${e.employee.first_name ?? ''} ${e.employee.last_name ?? ''}`.trim() : '';
 
+  const sync = health.data?.[0];
+  const lastSyncText = sync?.last_user_sync
+    ? new Date(sync.last_user_sync).toLocaleString('en-GB', { timeZone: APP_TZ, dateStyle: 'medium', timeStyle: 'short' })
+    : 'not yet';
+
   return (
     <>
-      <div className="page-title"><h1>Employees</h1></div>
+      <div className="page-title">
+        <div>
+          <h1>Employees</h1>
+          <p className="page-intro">
+            People are imported automatically from the device every time the catcher starts.
+            Last synced from device: <strong>{lastSyncText}</strong>
+            {sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
+          </p>
+        </div>
+      </div>
       <ErrorBanner error={err || emps.error} />
 
       <Card title="Add employee">

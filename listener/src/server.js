@@ -34,6 +34,13 @@ function main() {
     );
     const pending = buffer.pendingCount();
     if (pending) log.warn(`${pending} punch(es) waiting in the local buffer`);
+    // Auto-sync: pull every user the device knows about on each start, so people
+    // enrolled while the catcher was away get imported. The device performs the
+    // upload on its next poll (within seconds).
+    if (config.autoSyncUsers) {
+      app.requestUserSync();
+      log.info('user-sync queued; device will upload its users on next poll');
+    }
   });
 
   function shutdown(sig) {

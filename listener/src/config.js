@@ -31,6 +31,10 @@ function loadConfig() {
     deviceTzOffset: optional('DEVICE_TZ_OFFSET', '+05:00'),
     bufferDir: optional('BUFFER_DIR', '.buffer'),
     drainIntervalMs: intOpt('DRAIN_INTERVAL_MS', 15000),
+    // On startup, ask the device to upload all its users so we import everyone
+    // enrolled while the catcher was away. Set AUTO_SYNC_USERS=false to disable.
+    autoSyncUsers: optional('AUTO_SYNC_USERS', 'true') !== 'false',
+    userSyncCommand: optional('USER_SYNC_COMMAND', 'DATA QUERY USERINFO'),
   };
 }
 
