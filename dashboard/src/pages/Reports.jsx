@@ -44,13 +44,16 @@ export default function Reports() {
   }, [emps.data]);
 
   // Attach shift, then apply all filters. "Late" status = any positive late mins.
-  const rows = useMemo(() => (report.data ?? [])
-    .map((r) => ({ ...r, shift: shiftBy[r.employee_id] ?? null }))
-    .filter((r) => !dept || r.department === dept)
-    .filter((r) => !shift || r.shift === shift)
-    .filter((r) => !emp || String(r.employee_id) === String(emp))
-    .filter((r) => !stat || (stat === 'Late' ? (r.late_minutes ?? 0) > 0 : r.status === stat)),
-  [report.data, shiftBy, dept, shift, emp, stat]);
+  const rows = useMemo(() => {
+    const countedIds = new Set((emps.data ?? []).filter((e) => e.track_attendance).map((e) => e.id));
+    return (report.data ?? [])
+      .map((r) => ({ ...r, shift: shiftBy[r.employee_id] ?? null }))
+      .filter((r) => countedIds.has(r.employee_id))   // gate-only (CEO/Admin) never in reports
+      .filter((r) => !dept || r.department === dept)
+      .filter((r) => !shift || r.shift === shift)
+      .filter((r) => !emp || String(r.employee_id) === String(emp))
+      .filter((r) => !stat || (stat === 'Late' ? (r.late_minutes ?? 0) > 0 : r.status === stat));
+  }, [report.data, emps.data, shiftBy, dept, shift, emp, stat]);
 
   const totals = useMemo(() => rows.reduce((a, r) => {
     if (r.status === 'Present') a.present++;
