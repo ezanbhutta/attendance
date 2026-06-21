@@ -317,6 +317,7 @@ td strong{font-weight:600;color:var(--text)}
 .spinner{width:22px;height:22px;border:2.5px solid var(--surface-3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 .callout{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--r);padding:13px 16px;margin:0 0 18px;color:var(--text-2);font-size:.9rem}
 .callout.ok{border-left-color:var(--ok)} .callout.warn{border-left-color:var(--warn)}
+.callout.danger{border-left-color:var(--danger);background:var(--danger-weak)}
 .callout b,.callout strong{color:var(--text)}
 
 /* ─── Guide ────────────────────────────────────────────────────────────── */

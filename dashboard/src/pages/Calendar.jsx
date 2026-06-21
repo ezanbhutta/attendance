@@ -35,11 +35,15 @@ export default function Calendar() {
 
   return (
     <>
-      <div className="page-title"><h1>Leave &amp; Holidays</h1></div>
-      <p className="muted" style={{ marginTop: -8 }}>Recorded so absent-detection respects them (recompute runs automatically).</p>
+      <div className="page-title">
+        <div>
+          <h1>Leave &amp; Holidays</h1>
+          <p className="page-intro">Record approved leave and public holidays so nobody is marked absent on a day they were off — reports recompute automatically.</p>
+        </div>
+      </div>
       <ErrorBanner error={err} />
 
-      <Card title="Leave">
+      <Card title="Leave" help="Approved leave for a person over a date range. While it’s approved, they aren’t counted absent on those days.">
         <form onSubmit={addLeave} className="row" style={{ marginBottom: 12 }}>
           <Field label="Employee *">
             <select required value={lv.employee_id} onChange={(e) => setLv({ ...lv, employee_id: e.target.value })}>
@@ -73,7 +77,7 @@ export default function Calendar() {
         />
       </Card>
 
-      <Card title="Holidays">
+      <Card title="Holidays" help="Office-closed days — everyone is excused. Pay × marks special-pay days (e.g. 2 = double pay) for payroll.">
         <form onSubmit={addHoliday} className="row" style={{ marginBottom: 12 }}>
           <Field label="Date *"><input type="date" required value={hol.the_date} onChange={(e) => setHol({ ...hol, the_date: e.target.value })} /></Field>
           <Field label="Name *"><input required value={hol.name} onChange={(e) => setHol({ ...hol, name: e.target.value })} placeholder="Independence Day" /></Field>

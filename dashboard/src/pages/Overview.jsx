@@ -76,6 +76,12 @@ export default function Overview() {
       </div>
       <ErrorBanner error={daily.error || feed.error || health.error} />
 
+      {(health.data ?? []).some((d) => !d.online) && (
+        <div className="callout danger">
+          <b>Device offline.</b> The scanner hasn’t checked in recently, so punches may not be recording right now. Make sure the office Mac (catcher) is on and connected, then press <b>Sync</b>. Last seen {fmtDateTime((health.data.find((d) => !d.online) || {}).last_seen)}.
+        </div>
+      )}
+
       {unlinked.length > 0 && (
         <div className="callout warn">
           <b>{unlinked.length} PIN{unlinked.length > 1 ? 's' : ''} scanned but not linked to anyone.</b> Link a PIN to a person on the Employees page — or ignore it if it isn’t a real user.

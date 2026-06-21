@@ -30,13 +30,15 @@ export default function Corrections() {
 
   return (
     <>
-      <div className="page-title"><h1>Corrections</h1></div>
-      <p className="muted" style={{ marginTop: -8 }}>
-        Manual logs are audit-tracked and feed attendance recompute. <strong>Never edit raw_punches.</strong> Times are {APP_TZ}.
-      </p>
+      <div className="page-title">
+        <div>
+          <h1>Fix a punch</h1>
+          <p className="page-intro">Missed or failed scan? Add a tracked manual entry with a reason. The tamper-proof raw record is never edited — every fix is logged and feeds the reports. Times are {APP_TZ}.</p>
+        </div>
+      </div>
       <ErrorBanner error={err} />
 
-      <Card title="Add a manual punch">
+      <Card title="Add a manual punch" help="Add a punch the device missed (a failed or forgotten scan). It feeds attendance just like a real scan, but stays clearly marked as a manual correction.">
         <form onSubmit={add} className="row">
           <Field label="Employee *">
             <select required value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })}>
@@ -50,7 +52,7 @@ export default function Corrections() {
         </form>
       </Card>
 
-      <Card title="Recent corrections">
+      <Card title="Recent corrections" help="Every manual entry — who added it, when, and why. A clean, accountable audit trail.">
         <Table
           loading={logs.loading} rows={logs.data} empty="No corrections recorded."
           columns={[

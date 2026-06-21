@@ -64,6 +64,14 @@ const F = {
     { id: 2, shift_id: 1, day_index: 2, timetable_id: 1 },
     { id: 3, shift_id: 1, day_index: 3, timetable_id: 1 },
   ],
+  holidays: [{ id: 1, the_date: '2026-08-14', name: 'Independence Day', pay_multiplier: 2 }],
+  leaves: [
+    { id: 1, leave_type: 'annual', start_date: '2026-06-20', end_date: '2026-06-22', status: 'approved', employee: { emp_code: '1108', first_name: 'Ayesha' } },
+    { id: 2, leave_type: 'sick', start_date: '2026-06-21', end_date: '2026-06-21', status: 'pending', employee: { emp_code: '1067', first_name: 'Bilal' } },
+  ],
+  manual_logs: [
+    { id: 1, punch_time: _at(9), reason: 'Scanner failed — verified by lead', created_by: 'hr@haseebmadeit.com', created_at: _at(9, 5), employee: { emp_code: '1067', first_name: 'Bilal' } },
+  ],
 };
 
 function thenable(data) {
