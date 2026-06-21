@@ -35,6 +35,11 @@ function loadConfig() {
     // enrolled while the catcher was away. Set AUTO_SYNC_USERS=false to disable.
     autoSyncUsers: optional('AUTO_SYNC_USERS', 'true') !== 'false',
     userSyncCommand: optional('USER_SYNC_COMMAND', 'DATA QUERY USERINFO'),
+    // On startup, also ask the device to re-upload the attendance it has stored,
+    // so punches from before the catcher was running get pulled in. Dedup makes
+    // it safe to re-pull. Set AUTO_SYNC_HISTORY=false to disable.
+    autoSyncHistory: optional('AUTO_SYNC_HISTORY', 'true') !== 'false',
+    attlogSyncCommand: optional('ATTLOG_SYNC_COMMAND', 'DATA QUERY ATTLOG'),
   };
 }
 

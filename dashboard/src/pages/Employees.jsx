@@ -15,7 +15,7 @@ function friendlyDelete(error) {
 export default function Employees() {
   const emps = useQuery(() =>
     supabase.from('employees')
-      .select('id,emp_code,first_name,last_name,track_attendance,department_id,shift_id,department:departments(name),shift:shifts(name)')
+      .select('id,emp_code,first_name,last_name,track_attendance,weekly_off,department_id,shift_id,department:departments(name),shift:shifts(name)')
       .order('emp_code'), []);
   const depts = useQuery(() => supabase.from('departments').select('id,name').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
@@ -24,6 +24,7 @@ export default function Employees() {
 
   const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', shift_id: '' });
   const [err, setErr] = useState(null);
+  const [q, setQ] = useState('');
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   async function addEmp(e) {
@@ -40,6 +41,14 @@ export default function Employees() {
     if (error) return setErr(error);
     emps.refetch();
   }
+  // Edit a name in the dashboard: first word -> first name, the rest -> last name.
+  // (This stays put across device syncs; it never gets overwritten.)
+  async function saveName(id, value) {
+    const name = (value || '').trim();
+    if (!name) return;
+    const sp = name.indexOf(' ');
+    await updateEmp(id, { first_name: sp > 0 ? name.slice(0, sp) : name, last_name: sp > 0 ? name.slice(sp + 1) : null });
+  }
   async function delEmp(id) {
     const { error } = await supabase.from('employees').delete().eq('id', id);
     if (error) return setErr(friendlyDelete(error));
@@ -48,6 +57,9 @@ export default function Employees() {
 
   const deptOpts = depts.data ?? [];
   const shiftOpts = shifts.data ?? [];
+  const term = q.trim().toLowerCase();
+  const rows = (emps.data ?? []).filter((r) =>
+    !term || `${r.first_name} ${r.last_name ?? ''} ${r.emp_code}`.toLowerCase().includes(term));
   const sync = health.data?.[0];
   const lastSyncText = sync?.last_user_sync
     ? new Date(sync.last_user_sync).toLocaleString('en-GB', { timeZone: APP_TZ, dateStyle: 'medium', timeStyle: 'short' })
@@ -59,9 +71,9 @@ export default function Employees() {
         <div>
           <h1>Employees</h1>
           <p className="page-intro">
-            Everyone is imported from the device automatically. For each person, pick a
-            <strong> Department</strong> and <strong>Shift</strong> — or set <strong>Gate only</strong> for
-            people who scan to open the gate but shouldn’t be counted (CEO/Admin).
+            Everyone is imported from the device automatically. <strong>Click a name to edit it.</strong> For
+            each person pick a <strong>Department</strong>, <strong>Shift</strong>, and <strong>Weekly off</strong> —
+            or set <strong>Gate only</strong> for people who scan to open the gate but aren’t counted (CEO/Admin).
             Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
           </p>
         </div>
@@ -76,11 +88,22 @@ export default function Employees() {
       )}
 
       <Card title="All employees">
+        <div className="toolbar">
+          <input className="search" placeholder="Search name or PIN…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <span className="count-pill">{rows.length} {rows.length === 1 ? 'person' : 'people'}</span>
+        </div>
         <Table
-          loading={emps.loading} rows={emps.data} empty="No employees yet — start the catcher to import them from the device."
+          loading={emps.loading} rows={rows} empty={term ? 'No matches.' : 'No employees yet — start the catcher to import them from the device.'}
           columns={[
             { key: 'emp_code', label: 'PIN' },
-            { key: 'name', label: 'Name', render: (r) => `${r.first_name} ${r.last_name ?? ''}`.trim() },
+            { key: 'name', label: 'Name', render: (r) => {
+              const full = `${r.first_name} ${r.last_name ?? ''}`.trim();
+              return (
+                <input className="compact name-edit" defaultValue={full} aria-label="Name"
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== full) saveName(r.id, v); }} />
+              );
+            } },
             { key: 'department', label: 'Department', render: (r) => (
               <select className="compact" value={r.department_id ?? ''} onChange={(e) => updateEmp(r.id, { department_id: e.target.value || null })}>
                 <option value="">—</option>
@@ -98,6 +121,14 @@ export default function Employees() {
                       onChange={(e) => updateEmp(r.id, { shift_id: e.target.value || null })}>
                 <option value="">—</option>
                 {shiftOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            ) },
+            { key: 'weekly_off', label: 'Weekly off', render: (r) => (
+              <select className="compact" value={r.weekly_off ?? ''} disabled={!r.track_attendance}
+                      onChange={(e) => updateEmp(r.id, { weekly_off: e.target.value === '' ? null : parseInt(e.target.value, 10) })}>
+                <option value="">None</option>
+                <option value="6">Saturday</option>
+                <option value="0">Sunday</option>
               </select>
             ) },
             { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={() => delEmp(r.id)} /> },

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import { IS_DESKTOP } from '../lib/supabase';
@@ -18,9 +19,13 @@ const NAV = [
 
 export default function Layout() {
   const { user, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const initial = (user?.email || '?').charAt(0).toUpperCase();
+
   return (
     <div className="shell">
-      <aside className="sidebar">
+      {open && <div className="scrim" onClick={() => setOpen(false)} />}
+      <aside className={`sidebar${open ? ' open' : ''}`}>
         <div className="brand">
           <HMLogo size={38} />
           <div>
@@ -28,7 +33,7 @@ export default function Layout() {
             <div className="sub">HaseebMadeIt</div>
           </div>
         </div>
-        <nav className="nav">
+        <nav className="nav" onClick={() => setOpen(false)}>
           {NAV.map(([to, ico, label, end]) => (
             <NavLink key={to} to={to} end={end}>
               <span className="ico" aria-hidden>{ico}</span>{label}
@@ -36,12 +41,17 @@ export default function Layout() {
           ))}
         </nav>
       </aside>
+
       <div className="main">
         <header className="topbar">
-          <strong>Self-hosted biometric attendance</strong>
-          <div className="row" style={{ alignItems: 'center' }}>
+          <button className="hamburger no-print" onClick={() => setOpen((o) => !o)} aria-label="Toggle menu">☰</button>
+          <strong className="topbar-title">Attendance OS</strong>
+          <div className="topbar-right">
             {IS_DESKTOP && <SyncButton />}
-            <span className="muted" style={{ fontSize: '.85rem' }}>{user?.email}</span>
+            <span className="user-chip" title={user?.email}>
+              <span className="avatar" aria-hidden>{initial}</span>
+              <span className="user-email">{user?.email}</span>
+            </span>
             <button className="btn sm" onClick={signOut}>Sign out</button>
           </div>
         </header>

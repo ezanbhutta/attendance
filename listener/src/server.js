@@ -41,6 +41,10 @@ function main() {
       app.requestUserSync();
       log.info('user-sync queued; device will upload its users on next poll');
     }
+    if (config.autoSyncHistory) {
+      app.requestHistorySync();
+      log.info('history-sync queued; device will re-upload its stored attendance');
+    }
   });
 
   function shutdown(sig) {

@@ -208,16 +208,22 @@ function createApp({ config, store, buffer }) {
     );
   });
 
-  // Manually re-pull the device's users (LAN-only; the device does the upload on
-  // its next poll). Handy for a "Sync now" button or a quick test.
+  // Manually re-pull the device's users / stored attendance (LAN-only; the
+  // device does the upload on its next poll). Handy for a "Sync now" button.
   app.get('/admin/sync-users', (_req, res) => {
     const id = enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
     res.type('application/json').send(JSON.stringify({ queued: true, command_id: id }));
   });
+  app.get('/admin/sync-history', (_req, res) => {
+    const id = enqueueCommand(config.attlogSyncCommand || 'DATA QUERY ATTLOG');
+    res.type('application/json').send(JSON.stringify({ queued: true, command_id: id }));
+  });
 
-  // Ask the device to upload all its users on its next poll. Called on startup
-  // so every catcher start re-imports everyone (spec: auto-sync on start).
+  // Called on startup so every catcher start re-imports everyone and re-pulls
+  // the attendance the device has stored. Both uploads dedup, so re-pulling is
+  // safe. The device performs the work on its next poll.
   app.requestUserSync = () => enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
+  app.requestHistorySync = () => enqueueCommand(config.attlogSyncCommand || 'DATA QUERY ATTLOG');
 
   // Express 5 catch-all (spec gotcha: '/{*splat}', not '*'). Ack anything else.
   app.all('/{*splat}', (_req, res) => res.type('text/plain').send('OK'));

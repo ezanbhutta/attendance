@@ -115,6 +115,32 @@ input:focus, select:focus, textarea:focus, .btn:focus-visible, .nav a:focus-visi
 /* Compact dropdowns used for inline editing inside tables. */
 select.compact { min-height: 34px; padding: 5px 26px 5px 10px; font-size: .88rem; border-radius: 7px; background-position: right .45rem center; }
 select.compact:disabled { opacity: .5; background-color: var(--surface-2); }
+
+/* Inline-edit name field: reads as plain text until hovered/focused. */
+input.name-edit { min-width: 150px; max-width: 230px; min-height: 34px; padding: 5px 10px; font-weight: 600; border-color: transparent; background: transparent; }
+input.name-edit:hover { border-color: var(--border); background: var(--surface); }
+input.name-edit:focus { border-color: var(--primary); background: var(--surface); }
+
+/* Topbar bits */
+.hamburger { display: none; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); font-size: 1.15rem; cursor: pointer; }
+.hamburger:hover { background: var(--surface-2); }
+.topbar-title { font-family: var(--font-disp); font-weight: 600; letter-spacing: -.01em; color: var(--text-muted); font-size: .95rem; }
+.topbar-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.user-chip { display: inline-flex; align-items: center; gap: 8px; }
+.user-chip .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary-weak); color: var(--primary-dim); display: grid; place-items: center; font-weight: 700; font-size: .82rem; flex-shrink: 0; }
+.user-chip .user-email { font-size: .85rem; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Search field + toolbar above tables */
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.search { min-width: 240px; flex: 1; max-width: 360px; }
+.count-pill { font-size: .78rem; font-weight: 700; color: var(--primary-dim); background: var(--primary-weak); border: 1px solid #ddccff; border-radius: 999px; padding: 3px 11px; }
+
+/* Off-canvas backdrop on mobile */
+.scrim { display: none; }
+
+/* Subtle lift on stat cards */
+.stat { transition: box-shadow .15s ease, transform .15s ease; }
+.stat:hover { box-shadow: 0 1px 2px rgba(22,10,51,.04), 0 14px 30px rgba(22,10,51,.09); transform: translateY(-1px); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-weight: 600; transition: background .12s, filter .12s, border-color .12s; }
 .btn:hover { background: var(--surface-2); border-color: var(--border-hi); }
 .btn.primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); box-shadow: 0 6px 16px rgba(114, 41, 255, .24); }
@@ -179,14 +205,24 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-fam
 .login-brand .sub { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .22em; color: var(--primary); }
 
 /* ─── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 1040px) {
+  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; }
-  .nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
-  .nav a { min-height: 40px; }
-  .grid.cols-3, .grid.cols-4, .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .hamburger { display: flex; }
+  /* sidebar slides in from the left */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 264px; height: 100vh; z-index: 50;
+    transform: translateX(-100%); transition: transform .22s ease; box-shadow: 0 18px 50px rgba(22,10,51,.25);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .scrim { display: block; position: fixed; inset: 0; background: rgba(22,10,51,.4); z-index: 40; }
+  .content { padding: 16px; }
+  .grid.cols-3, .grid.cols-4, .grid.cols-2 { grid-template-columns: 1fr; }
+  .user-chip .user-email { display: none; }
 }
-@media (max-width: 540px) { .grid.cols-3, .grid.cols-4, .grid.cols-2 { grid-template-columns: 1fr; } }
+@media (min-width: 901px) { .topbar-title { display: none; } }
 
 /* ─── Print (Save-as-PDF report export) ────────────────────────────────────── */
 @media print {
