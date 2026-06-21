@@ -58,7 +58,7 @@ export default function Overview() {
     setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, list, right });
 
   // Some PINs aren't real users (test scans, removed staff). Let HR ignore them
-  // so they stop nagging — remembered on this device, and shared once the
+  // so they stop nagging. Remembered on this device, and shared once the
   // ignored_pins migration is applied.
   const unlinked = (unknown.data ?? []).filter((u) => !ignored.has(`${u.device_sn}::${u.pin}`));
   function ignorePin(device_sn, pin) {

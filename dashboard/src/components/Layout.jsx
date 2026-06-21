@@ -20,8 +20,8 @@ const NAV = [
   ['/help', 'Guide'],
 ];
 
-// Top-nav shell: centered horizontal navigation, content centered beneath —
-// the "clean discipline system" layout used by the reference sites.
+// Top nav shell: centered horizontal navigation, content centered beneath.
+// The clean, disciplined layout used by the reference sites.
 export default function Layout() {
   const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);

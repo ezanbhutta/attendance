@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════════
-   Attendance OS — design system  ·  HaseebMadeIt
+   Attendance OS  ·  design system  ·  HaseebMadeIt
    Reference-grade "agency" aesthetic (Cal.com / Calendly / Dovetail / Reflect):
    one restrained accent, near-black text, hairline borders, small radii,
    ultra-subtle elevation, NO gradients on surfaces, medium-weight display type,
@@ -45,7 +45,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
   font-feature-settings:"liga" 1,"calt" 1}
 a{color:var(--accent);text-decoration:none;font-weight:500}
 a:hover{color:var(--accent-2)}
-/* Display type is MEDIUM, not bold — the single biggest "premium" lever. */
+/* Display type is MEDIUM, not bold. The single biggest premium lever. */
 h1,h2,h3{margin:0;font-family:var(--disp);font-weight:600;color:var(--text);letter-spacing:-.02em;line-height:1.2}
 h1{font-size:1.75rem;letter-spacing:-.03em}
 h2{font-size:1.12rem}
@@ -53,7 +53,7 @@ h3{font-size:.98rem;letter-spacing:-.01em}
 p{margin:0}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .muted{color:var(--muted)}
-/* Eyebrow / overline — mono, uppercase, tracked. Used for labels everywhere. */
+/* Eyebrow / overline: mono, uppercase, tracked. Used for labels everywhere. */
 .eyebrow{font-family:var(--mono);font-size:.68rem;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--dim)}
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:6px;border:3px solid var(--bg)}
@@ -89,7 +89,7 @@ p{margin:0}
 .user-chip .user-email{font-size:.85rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .content{padding:34px 32px 64px;max-width:1200px;width:100%;margin:0 auto}
 
-/* ─── Top navigation — centered, "clean discipline system" ─────────────── */
+/* ─── Top navigation: centered, clean discipline system ────────────────── */
 .app{min-height:100vh;display:flex;flex-direction:column}
 .topnav{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surface) 86%,transparent);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--border)}
 .topnav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;gap:14px}
@@ -138,7 +138,7 @@ p{margin:0}
 .grid.cols-3{grid-template-columns:repeat(3,1fr)}
 .grid.cols-4{grid-template-columns:repeat(4,1fr)}
 
-/* ─── Stat tiles — balanced: eyebrow + icon row, then big medium metric ──── */
+/* ─── Stat tiles: eyebrow + icon row, then a big medium metric ─────────── */
 .stat{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--border);
   border-radius:var(--r-card);padding:18px 20px;box-shadow:var(--shadow-sm);text-align:left;min-width:0}
 .stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -180,7 +180,7 @@ input.name-edit{min-width:150px;max-width:240px;min-height:34px;padding:5px 10px
 input.name-edit:hover{border-color:var(--border-2);background:var(--surface-2)}
 input.name-edit:focus{border-color:var(--accent);background:var(--surface)}
 
-/* ─── Buttons — binary system: one solid primary + one hairline ghost ───── */
+/* ─── Buttons: one solid primary plus one hairline ghost ───────────────── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-weight:500;
   background:var(--surface);color:var(--text);white-space:nowrap}
 .btn:hover{background:var(--surface-2);border-color:var(--border-2)}
@@ -240,7 +240,7 @@ th.sorted{color:var(--text)}
 .badge.fingerprint{background:var(--sky-weak);color:var(--sky);border-color:transparent}
 .count-pill{font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
 
-/* ─── "Know mark" — hover/focus info tooltip ───────────────────────────── */
+/* ─── Know mark: hover or focus info tooltip ───────────────────────────── */
 .infotip{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;color:var(--dim);cursor:help;flex-shrink:0;vertical-align:middle;transition:color .12s}
 .infotip:hover,.infotip:focus-visible{color:var(--accent);outline:none}
 .infotip-bubble{position:absolute;top:calc(100% + 9px);left:-8px;transform:translateY(-4px);width:max-content;max-width:240px;
@@ -376,10 +376,10 @@ th.sorted{color:var(--text)}
 }
 @media (min-width:901px){.topbar-title{display:none}}
 
-/* Print-only letterhead — hidden on screen, shown only when printing. */
+/* Print only letterhead: hidden on screen, shown only when printing. */
 .print-header{display:none}
 
-/* ─── Print (Save-as-PDF report export) — always light ─────────────────── */
+/* ─── Print (save as PDF report export): always light ──────────────────── */
 @media print{
   :root{--text:#161427;--muted:#534F66;--dim:#8B86A0;--border:#E2DEF0;--surface:#fff;--surface-2:#F6F4FC;--hairline:#ECEAF6}
   body{background:#fff!important}

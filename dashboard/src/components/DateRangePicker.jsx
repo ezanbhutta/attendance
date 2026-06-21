@@ -55,7 +55,7 @@ export default function DateRangePicker({ from, to, onApply }) {
   return (
     <div className="drp" ref={ref}>
       <button type="button" className="drp-trigger" onClick={() => setOpen((o) => !o)}>
-        <Calendar size={15} /> {fmt(from)} – {fmt(to)}
+        <Calendar size={15} /> {fmt(from)} to {fmt(to)}
       </button>
       {open && (
         <div className="drp-pop">

@@ -48,7 +48,7 @@ export default function Calendar() {
           <Field label="Employee *">
             <select required value={lv.employee_id} onChange={(e) => setLv({ ...lv, employee_id: e.target.value })}>
               <option value="">—</option>
-              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} — {e.first_name}</option>)}
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {e.first_name}</option>)}
             </select>
           </Field>
           <Field label="Type">
@@ -68,7 +68,7 @@ export default function Calendar() {
         <Table
           loading={leaves.loading} rows={leaves.data} empty="No leave recorded."
           columns={[
-            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} — ${r.employee.first_name}` : '—' },
+            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
             { key: 'leave_type', label: 'Type' },
             { key: 'range', label: 'Dates', render: (r) => `${fmtDate(r.start_date)} → ${fmtDate(r.end_date)}` },
             { key: 'status', label: 'Status', render: (r) => <Badge value={r.status} kind={r.status === 'approved' ? 'Leave' : 'Incomplete'} /> },

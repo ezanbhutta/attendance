@@ -51,7 +51,7 @@ export default function Settings({ firstRun }) {
       <Field label="Anon / publishable key (for viewing reports)">
         <input required value={f.anonKey} onChange={set('anonKey')} />
       </Field>
-      <Field label={`Service-role / secret key (for saving punches)${cfg.hasServiceKey ? ' — leave blank to keep current' : ''}`}>
+      <Field label={`Secret key (for saving punches)${cfg.hasServiceKey ? '. Leave blank to keep the current one' : ''}`}>
         <input type="password" required={!cfg.hasServiceKey} placeholder={cfg.hasServiceKey ? '•••••• saved' : ''} value={f.serviceKey} onChange={set('serviceKey')} />
       </Field>
 
@@ -70,7 +70,7 @@ export default function Settings({ firstRun }) {
       </label>
       <label className="row" style={{ gap: 8, alignItems: 'center' }}>
         <input type="checkbox" style={{ minHeight: 'auto', width: 18, height: 18 }} checked={f.pushEnabled} onChange={set('pushEnabled')} />
-        Also run the always-on catcher in the background (backup — proven on this device)
+        Also run the always on catcher in the background, as a proven backup on this device
       </label>
 
       <ErrorBanner error={err ? { message: err } : null} />
@@ -81,9 +81,9 @@ export default function Settings({ firstRun }) {
   if (firstRun) {
     return (
       <div className="login-wrap">
-        <Card className="login-card" title="Welcome — set up Attendance OS" style={{ maxWidth: 460 }}>
+        <Card className="login-card" title="Welcome. Set up Attendance OS" style={{ maxWidth: 460 }}>
           <p className="muted" style={{ marginTop: 0 }}>
-            Enter your Supabase keys (Settings → API in Supabase) and confirm the device address. You only do this once.
+            Enter your Supabase keys (Settings then API in Supabase) and confirm the device address. You only do this once.
           </p>
           {form}
         </Card>

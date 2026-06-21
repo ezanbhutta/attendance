@@ -3,9 +3,9 @@ import { RefreshCw } from 'lucide-react';
 import { supabase, IS_DESKTOP, DEVICE_SN } from '../lib/supabase';
 import { fmtDateTime } from '../lib/format';
 
-// One-click "re-sync the device now".
+// One click "re-sync the device now".
 //  • Desktop app: talks straight to the device via the Electron bridge.
-//  • Web: drops a request row that the always-on Mac catcher picks up and acts
+//  • Web: drops a request row that the always on Mac catcher picks up and acts
 //    on (it re-pulls ATTLOG/USERINFO from the device), so HR never installs a thing.
 export default function SyncButton() {
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export default function SyncButton() {
         setMsg(r?.ok === false ? `Sync failed: ${r.error}` : `Fetched ${r.pulled} punch(es)`);
       } else {
         const { error } = await supabase.from('device_sync_requests').insert({ device_sn: DEVICE_SN });
-        setMsg(error ? `Couldn’t request sync: ${error.message}` : 'Sync requested — your Mac is pulling from the device now.');
+        setMsg(error ? `Couldn’t request sync: ${error.message}` : 'Sync requested. Your Mac is pulling from the device now.');
       }
     } catch {
       setMsg('Sync failed');

@@ -93,7 +93,7 @@ export default function Employees() {
         </div>
       )}
 
-      <Card title="All employees" help="Everyone the device knows. Counted = their attendance is tracked. Gate-only = they can open the gate but don’t count. Methods shows how they’ve scanned (face / fingerprint / card).">
+      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card.">
         <div className="toolbar">
           <span className="search-wrap">
             <Search size={16} className="search-ico" />

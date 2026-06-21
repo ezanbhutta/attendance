@@ -1,6 +1,6 @@
-// The HaseebMadeIt monogram — the same mark used across CSR Pulse. A violet
-// rounded square holding the white "HM" glyph. Used in the sidebar brand and
-// on the login screen so the attendance app reads as part of the same family.
+// The HaseebMadeIt monogram, the same mark used across CSR Pulse. A violet
+// rounded square holding the white "HM" glyph. Used in the brand and on the
+// login screen so the attendance app reads as part of the same family.
 export default function HMLogo({ size = 36, color = '#FFFFFF', bg = '#7229FF' }) {
   return (
     <svg

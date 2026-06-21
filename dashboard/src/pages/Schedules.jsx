@@ -31,7 +31,7 @@ export default function Schedules() {
     department: useQuery(() => supabase.from('department_schedules').select('id,start_date,end_date,shift:shifts(name),department:departments(name)').order('start_date', { ascending: false }), []),
   };
 
-  const targetLabel = (o) => o.emp_code ? `${o.emp_code} — ${o.first_name}` : o.name;
+  const targetLabel = (o) => o.emp_code ? `${o.emp_code} · ${o.first_name}` : o.name;
 
   async function add(e) {
     e.preventDefault(); setErr(null);
@@ -92,7 +92,7 @@ export default function Schedules() {
             <Table
               loading={q.loading} rows={q.data} empty="None."
               columns={[
-                { key: 'target', label: 'Assigned to', render: (r) => r.employee ? `${r.employee.emp_code} — ${r.employee.first_name}` : (r.group?.name ?? r.department?.name) },
+                { key: 'target', label: 'Assigned to', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : (r.group?.name ?? r.department?.name) },
                 { key: 'shift', label: 'Shift', render: (r) => r.shift?.name },
                 { key: 'when', label: 'When', render: (r) => s.dated ? `${fmtDate(r.start_date)} → ${r.end_date ? fmtDate(r.end_date) : 'ongoing'}` : fmtDate(r.the_date) },
                 { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del(s.table, r.id, q.refetch)} /> },

@@ -43,7 +43,7 @@ export default function Corrections() {
           <Field label="Employee *">
             <select required value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })}>
               <option value="">—</option>
-              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} — {e.first_name}</option>)}
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {e.first_name}</option>)}
             </select>
           </Field>
           <Field label="Date &amp; time *"><input type="datetime-local" required value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} /></Field>
@@ -57,7 +57,7 @@ export default function Corrections() {
           loading={logs.loading} rows={logs.data} empty="No corrections recorded."
           columns={[
             { key: 'punch_time', label: 'Punch time', render: (r) => fmtDateTime(r.punch_time) },
-            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} — ${r.employee.first_name}` : '—' },
+            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
             { key: 'reason', label: 'Reason' },
             { key: 'created_by', label: 'By' },
             { key: 'created_at', label: 'Logged', render: (r) => fmtDateTime(r.created_at) },

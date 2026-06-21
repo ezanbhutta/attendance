@@ -5,35 +5,35 @@ import {
   Moon, Info, EyeOff,
 } from 'lucide-react';
 
-// Plain-language guide to every part of Attendance OS — written for a
-// first-time HR user, kept in sync with the live features.
+// Plain language guide to every part of Attendance OS, written for someone
+// using it for the first time and kept in step with the live features.
 
 const SECTIONS = [
-  { icon: LayoutDashboard, name: 'Overview', what: 'Your home screen — today, live.',
-    why: 'See who’s present, late, still in, or absent right now. Every tile is clickable — tap one to see exactly which people are in that group. The feed updates the instant someone scans. Absences are shift-aware: nobody counts as absent until their shift has actually started (people not due yet are shown separately). If the device drops offline you get a red alarm here, and unrecognised PINs appear so you can link or ignore them.' },
-  { icon: LineChart, name: 'CEO View', what: 'The whole company at a glance — built to print.',
-    why: 'Headline numbers (present, absent, attendance rate), a per-department breakdown, and a 7-day trend. Tiles are clickable here too. Use “Export PDF” for a clean one-page summary to share or file.' },
-  { icon: Users, name: 'Employees', what: 'People, their PIN, and how they’re set up.',
-    why: 'The device only knows a number (the PIN); here you give it a name. Set each person’s Department, Shift and Weekly off. “Counted” people are tracked; “Gate only” (CEO/Admin) open the gate but aren’t counted. Methods shows how they scan — face, fingerprint or card (with the card number). Archive anyone who leaves — they stop counting everywhere until you Restore them, with their history intact.' },
+  { icon: LayoutDashboard, name: 'Overview', what: 'Your home screen for today, live.',
+    why: 'See who is present, late, still in, or absent right now. Every tile is clickable, so you can tap one and see exactly which people are in that group. The feed updates the instant someone scans. Absences only count once a shift has started, so nobody is marked absent before they are due, and the people still to come are listed on their own. If the device goes offline you get a red alarm here, and any PIN the system does not recognise shows up so you can link it to a person or ignore it.' },
+  { icon: LineChart, name: 'CEO View', what: 'The whole company at a glance, ready to print.',
+    why: 'Headline numbers for present, absent, late and the attendance rate, a breakdown for each department, and a trend for the last seven days. Below that is a table of every person with their attendance and on time scores over any date range you choose. Tiles and rows are clickable. Use Export PDF for a clean summary to share or file.' },
+  { icon: Users, name: 'Employees', what: 'People, their PIN, and how they are set up.',
+    why: 'The device only knows a number, the PIN. Here you give that number a name. Set each person and their department, shift and weekly off day. Counted people are tracked in reports. Gate only people, like the CEO or admin, open the gate but are never counted. Methods shows how each person scans, by face, fingerprint or card, with the card number if they have one. When someone leaves, Archive them. They stop counting everywhere until you Restore them, and their history stays intact.' },
   { icon: Building2, name: 'Departments', what: 'Group staff so reports can be filtered.',
-    why: 'Click a department name to rename it in place. Assign people to departments on the Employees page, then filter any report by department.' },
-  { icon: Clock, name: 'Shifts & Timetables', what: 'The expected working hours.',
-    why: 'A timetable is one day’s hours (start, end, and the grace minutes before late/early-leave counts). A shift maps a timetable to each weekday — or marks a day Off. Click any value to edit it in place. This is what real scans are compared against to decide late, early-leave and overtime.' },
-  { icon: BarChart3, name: 'Reports', what: 'Daily, by person, department or shift — export-ready.',
-    why: 'Pick a range with the quick picker (Today, Last 7/30 days, This month, or a custom range), filter, and read off hours, lates, overtime and absences. Grouped views add a scorecard — Attendance % and On-time % per person or shift. Export the exact rows as CSV, or Save-as-PDF.' },
-  { icon: PenLine, name: 'Fix a punch', what: 'Add a punch the device missed.',
-    why: 'Someone forgot to scan, or a scan failed? Add a manual entry with a reason. The tamper-proof raw record is never edited — your fix is logged separately and the reports recompute automatically.' },
-  { icon: CalendarDays, name: 'Leave & Holidays', what: 'Approved leave and office-closed days.',
-    why: 'So nobody is marked absent on a day they were on approved leave or the office was shut. Keeps reports fair.' },
+    why: 'Click a department name to rename it in place. Put people in departments on the Employees page, then filter any report by department.' },
+  { icon: Clock, name: 'Shifts and Timetables', what: 'The hours each person is meant to work.',
+    why: 'A timetable is one day of hours: a start, an end, and the grace minutes allowed before a late or an early leave counts. A shift maps a timetable to each weekday, or marks a day off. Click any value to edit it in place. Real scans are checked against this to work out late, early leave and overtime.' },
+  { icon: BarChart3, name: 'Reports', what: 'Daily, or grouped by person, department or shift.',
+    why: 'Pick a range with the quick picker for today, the last 7 or 30 days, this month, or any custom dates. Filter, then read off hours, lates, overtime and absences. Grouped views add a scorecard with an attendance score and an on time score for each person or shift. Export the exact rows as CSV, or save them as a PDF. Click any column heading to sort.' },
+  { icon: PenLine, name: 'Fix a punch', what: 'Add a scan the device missed.',
+    why: 'If someone forgot to scan, or a scan failed, add a manual entry with a reason. The raw record is never edited. Your fix is saved separately and the reports update on their own.' },
+  { icon: CalendarDays, name: 'Leave and Holidays', what: 'Approved leave and days the office is closed.',
+    why: 'So nobody is marked absent on a day they were on approved leave or the office was shut. It keeps reports fair.' },
 ];
 
 const TIPS = [
-  { icon: RefreshCw, title: 'Sync', text: 'Top-right button. Pulls the latest punches and people from the device through your office Mac — one click, nothing to install.' },
-  { icon: MousePointerClick, title: 'Click any number', text: 'The stat tiles on Overview and CEO View open a panel listing the actual people behind the number.' },
-  { icon: Archive, title: 'Archive, don’t delete', text: 'On Employees, Archive removes someone from every count and report while keeping their record. Restore them anytime.' },
-  { icon: EyeOff, title: 'Ignore a stray PIN', text: 'If a PIN isn’t a real person (a test scan), click Ignore on the Overview to stop it nagging you.' },
-  { icon: Moon, title: 'Light / dark', text: 'The sun/moon button in the top bar switches the whole app between light and dark. Your choice is remembered.' },
-  { icon: Info, title: 'The ⓘ marks', text: 'Hover the little ⓘ next to any heading or number for a plain-language explanation of what it means.' },
+  { icon: RefreshCw, title: 'Sync', text: 'The button in the top bar. It pulls the latest scans and people from the device through your office Mac. One click, nothing to install.' },
+  { icon: MousePointerClick, title: 'Click any number', text: 'The tiles on Overview and CEO View open a panel that lists the real people behind the number.' },
+  { icon: Archive, title: 'Archive, do not delete', text: 'On Employees, Archive takes someone out of every count and report while keeping their record. Restore them any time.' },
+  { icon: EyeOff, title: 'Ignore a stray PIN', text: 'If a PIN is not a real person, like a test scan, click Ignore on the Overview so it stops nagging you.' },
+  { icon: Moon, title: 'Light or dark', text: 'The sun and moon button in the top bar switches the whole app between light and dark. Your choice is remembered.' },
+  { icon: Info, title: 'The info marks', text: 'Hover the small mark next to any heading or number for a short explanation of what it means.' },
 ];
 
 export default function Help() {
@@ -42,7 +42,7 @@ export default function Help() {
       <div className="page-title">
         <div>
           <h1>Guide</h1>
-          <p className="page-intro">Everything Attendance OS can do, in plain language. Each section tells you what it’s for and how it helps.</p>
+          <p className="page-intro">Everything Attendance OS can do, in plain language. Each section says what it is for and how it helps.</p>
         </div>
         <button className="btn no-print" onClick={() => window.print()}><Printer size={15} /> Print</button>
       </div>
@@ -50,15 +50,15 @@ export default function Help() {
       <div className="callout">
         <strong>New here? Do these four things, in order:</strong>
         <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-          <li><strong>Employees</strong> — name each person (they’re imported from the device by PIN), and set Counted vs Gate-only.</li>
-          <li><strong>Departments</strong> — sort staff so you can filter reports.</li>
-          <li><strong>Shifts &amp; Timetables</strong> — set working hours, then give each person a shift on Employees.</li>
-          <li><strong>Reports</strong> — pick a date range and read off hours, lates and absences.</li>
+          <li><strong>Employees.</strong> Name each person. They arrive from the device as a PIN. Set Counted or Gate only.</li>
+          <li><strong>Departments.</strong> Sort staff so you can filter reports.</li>
+          <li><strong>Shifts and Timetables.</strong> Set the working hours, then give each person a shift on Employees.</li>
+          <li><strong>Reports.</strong> Pick a date range and read off hours, lates and absences.</li>
         </ol>
         After that you mostly just open <strong>Overview</strong> and <strong>Reports</strong>.
       </div>
 
-      <Card title="What each section does" help="A tour of every page in the sidebar.">
+      <Card title="What each section does" help="A tour of every page in the navigation.">
         {SECTIONS.map((s) => (
           <div className="guide-item" key={s.name}>
             <div className="guide-ico" aria-hidden><s.icon size={18} /></div>
@@ -71,7 +71,7 @@ export default function Help() {
         ))}
       </Card>
 
-      <Card title="Handy things to know" help="Small features that make the day-to-day faster.">
+      <Card title="Handy things to know" help="Small features that make the everyday faster.">
         <div className="grid cols-2">
           {TIPS.map((t) => (
             <div className="guide-item" key={t.title} style={{ borderBottom: 'none', padding: '10px 0' }}>
@@ -84,31 +84,32 @@ export default function Help() {
 
       <Card title="How attendance is decided (the rules that matter)" className="help-section">
         <ul>
-          <li><strong>Face or fingerprint = attendance.</strong> Those scans are the real record of who was present.</li>
-          <li><strong>Cards open the gate but are never counted.</strong> So nobody can “buddy-punch” for a colleague with a card — impossible by design.</li>
-          <li><strong>First scan of the day is check-in, last is check-out.</strong> The device doesn’t send a direction, so it’s derived by time. Repeat scans within about a minute are ignored.</li>
-          <li><strong>Absent is shift-aware.</strong> You’re only marked absent once your shift has started and you haven’t scanned — never before, and never on a weekly-off day or approved leave.</li>
-          <li><strong>Nothing is silently overwritten.</strong> Raw punches are permanent; fixes are added as tracked corrections, and reports recompute on every change.</li>
+          <li><strong>Face or fingerprint is attendance.</strong> Those scans are the real record of who was present.</li>
+          <li><strong>Cards open the gate but are never counted.</strong> So nobody can scan in for a colleague with a card. It is impossible by design.</li>
+          <li><strong>The first scan of the day is the start, the last is the finish.</strong> The device does not send a direction, so it is worked out by time. Repeat scans within about a minute are ignored.</li>
+          <li><strong>Absent only counts once a shift has started.</strong> You are marked absent only after your shift begins and you still have not scanned. Never before, and never on a weekly off day or approved leave.</li>
+          <li><strong>No scan out for hours?</strong> If someone scans in but never scans out, the reports and CEO view fill the checkout at their shift end time and mark it auto, four hours after the shift ends. The raw log still shows no scan out, so the real record stays honest.</li>
+          <li><strong>Nothing is overwritten quietly.</strong> Raw scans are permanent. Fixes are added as tracked corrections, and reports update on every change.</li>
         </ul>
       </Card>
 
       <Card title="For staff (print this and post it by the device)" className="help-section">
         <ol>
-          <li><strong>Mark attendance with your FACE or FINGERPRINT.</strong> This opens the gate and records your check-in/out.</li>
-          <li><strong>The card opens the gate but does NOT record attendance.</strong> Use it only for entry.</li>
-          <li><strong>Your first scan of the day is check-in; your last is check-out.</strong> Nothing else to press.</li>
-          <li><strong>If a scan fails,</strong> face the camera directly and retry; if it still fails, ask HR to add a manual entry. Never ask someone to scan for you.</li>
+          <li><strong>Mark attendance with your FACE or FINGERPRINT.</strong> This opens the gate and records your time.</li>
+          <li><strong>The card opens the gate but does NOT record attendance.</strong> Use it only to get in.</li>
+          <li><strong>Your first scan of the day is your start, your last is your finish.</strong> Nothing else to press.</li>
+          <li><strong>If a scan fails,</strong> face the camera directly and try again. If it still fails, ask HR to add a manual entry. Never ask someone to scan for you.</li>
         </ol>
       </Card>
 
       <Card title="Keeping punches flowing (the catcher)" className="help-section">
         <p className="muted" style={{ marginTop: 0 }}>
-          One small program (“the catcher”) runs on the office Mac, quietly receives every scan from the device, and saves it to the cloud — which is what this website reads.
+          One small program, called the catcher, runs on the office Mac. It quietly receives every scan from the device and saves it to the cloud, which is what this website reads.
         </p>
         <ul>
-          <li><strong>Keep the Mac on and on the office Wi-Fi.</strong> While the catcher runs, punches arrive here within about a second, and the <strong>Sync</strong> button works.</li>
-          <li><strong>If the Mac is asleep or off,</strong> the device stores punches itself and sends them the moment the catcher is back — <strong>nothing is lost</strong>, it just arrives later. Overview shows a red alarm while it’s offline.</li>
-          <li>Restarting the catcher never locks anyone out — the gate works on its own; the catcher only records.</li>
+          <li><strong>Keep the Mac on and on the office network.</strong> While the catcher runs, scans arrive here within about a second, and the <strong>Sync</strong> button works.</li>
+          <li><strong>If the Mac is asleep or off,</strong> the device stores scans itself and sends them the moment the catcher is back. <strong>Nothing is lost</strong>, it just arrives a little later. Overview shows a red alarm while it is offline.</li>
+          <li>Restarting the catcher never locks anyone out. The gate works on its own. The catcher only records.</li>
         </ul>
       </Card>
     </>
