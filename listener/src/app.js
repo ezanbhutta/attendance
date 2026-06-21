@@ -39,6 +39,20 @@ function createApp({ config, store, buffer }) {
     return true;
   }
 
+  // Refresh devices.last_seen on EVERY device contact (handshake, poll, punch,
+  // ping) so the dashboard's online/offline badge reflects real connectivity —
+  // not just the device's infrequent INFO heartbeat (which left it reading
+  // "offline" while connected). Throttled so a chatty poll loop doesn't write on
+  // every request; an INFO payload always writes (it carries firmware/IP).
+  let lastTouchAt = 0;
+  function touchDevice(info) {
+    const now = Date.now();
+    if (info || now - lastTouchAt >= 30000) {
+      lastTouchAt = now;
+      store.updateDeviceStatus(SN, info || null); // fire-and-forget; never throws
+    }
+  }
+
   // Turn an ATTLOG body into DB-ready rows. Each row's punch_time is normalized
   // to an ISO instant here (single normalization point). Lines we can't parse or
   // whose timestamp is malformed are separated out for dead-lettering so they
@@ -70,6 +84,7 @@ function createApp({ config, store, buffer }) {
   // Handshake / init.
   app.get('/iclock/cdata', (req, res) => {
     if (!guard(req, res)) return;
+    touchDevice();
     log.info(`handshake from SN=${req.query.SN}`);
     res.type('text/plain').send(HANDSHAKE(SN));
   });
@@ -77,6 +92,7 @@ function createApp({ config, store, buffer }) {
   // The core: attendance punches (ATTLOG) and operation logs (OPERLOG).
   app.post('/iclock/cdata', async (req, res) => {
     if (!guard(req, res)) return;
+    touchDevice();
     const table = (req.query.table || '').toUpperCase();
     const body = req.body ? req.body.toString('utf8') : '';
 
@@ -121,10 +137,7 @@ function createApp({ config, store, buffer }) {
   // Heartbeat (+ periodic device status) + command queue.
   app.get('/iclock/getrequest', (req, res) => {
     if (!guard(req, res)) return;
-    if (req.query.INFO) {
-      const info = parseInfo(req.query.INFO);
-      if (info) store.updateDeviceStatus(SN, info); // fire-and-forget; never throws
-    }
+    touchDevice(req.query.INFO ? parseInfo(req.query.INFO) : null);
     // Phase 3 (spec §3.6): return queued 'C:<id>:<cmd>' lines here to push users.
     res.type('text/plain').send('OK');
   });
@@ -138,6 +151,7 @@ function createApp({ config, store, buffer }) {
   // Backup heartbeat.
   app.get('/iclock/ping', (req, res) => {
     if (!guard(req, res)) return;
+    touchDevice();
     res.type('text/plain').send('OK');
   });
 

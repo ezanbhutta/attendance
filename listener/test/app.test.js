@@ -128,6 +128,20 @@ test('heartbeat with INFO updates device status and acks OK', async () => {
   }
 });
 
+test('plain heartbeat without INFO still marks the device seen (online badge fix)', async () => {
+  const app = await startApp();
+  try {
+    const res = await fetch(`${app.url}/iclock/getrequest?SN=${SN}`);
+    assert.equal(await res.text(), 'OK');
+    // Before the fix last_seen only moved on INFO heartbeats, so a connected
+    // device reading no INFO showed "offline". Now any contact refreshes it.
+    assert.equal(app.store.deviceUpdates.length, 1);
+    assert.equal(app.store.deviceUpdates[0].info, null);
+  } finally {
+    await app.close();
+  }
+});
+
 test('ping and unknown paths ack OK', async () => {
   const app = await startApp();
   try {
