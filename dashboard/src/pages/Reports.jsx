@@ -146,7 +146,7 @@ export default function Reports() {
       <div className="page-title">
         <div>
           <h1>Reports</h1>
-          <p className="page-intro">Pick a view and filters, then export a clean PDF or CSV. Gate only people are never included.</p>
+          <p className="page-intro">By day, person, department or shift.</p>
         </div>
         <div className="inline-actions no-print">
           <button className="btn" onClick={exportCSV} disabled={!data.length}><Download size={15} /> CSV</button>

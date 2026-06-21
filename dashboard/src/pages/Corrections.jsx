@@ -33,7 +33,7 @@ export default function Corrections() {
       <div className="page-title">
         <div>
           <h1>Fix a punch</h1>
-          <p className="page-intro">Missed or failed scan? Add a manual entry with a reason. The raw record is never changed. Every fix is logged and feeds the reports. Times are {APP_TZ}.</p>
+          <p className="page-intro">Add a scan the device missed. Times in {APP_TZ}.</p>
         </div>
       </div>
       <ErrorBanner error={err} />

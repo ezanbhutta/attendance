@@ -121,7 +121,7 @@ export default function CeoView() {
       <div className="page-title">
         <div>
           <h1>CEO View</h1>
-          <p className="page-intro">Today across the company, then every person's record over any range. Gate only people do not count, and absences only count once a shift has started.</p>
+          <p className="page-intro">The whole company at a glance.</p>
         </div>
         <button className="btn primary no-print" onClick={() => window.print()}>Export PDF</button>
       </div>

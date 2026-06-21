@@ -35,7 +35,7 @@
 
 /* tokens shared by both themes */
 :root{
-  --r-card:9px; --r:6px; --r-sm:5px; --tap:38px;
+  --r-card:10px; --r:7px; --r-sm:5px; --tap:40px;
   --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --disp:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
@@ -93,12 +93,12 @@ p{margin:0}
 .topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
 .user-chip{display:inline-flex;align-items:center;gap:8px}
 .user-chip .user-email{font-size:.85rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.content{padding:40px 36px 72px;max-width:1200px;width:100%;margin:0 auto}
+.content{padding:38px 48px 80px;max-width:1800px;width:100%;margin:0 auto}
 
 /* ─── Top navigation: centered, clean discipline system ────────────────── */
 .app{min-height:100vh;display:flex;flex-direction:column}
 .topnav{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--surface) 86%,transparent);backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--border)}
-.topnav-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;gap:14px}
+.topnav-inner{max-width:1800px;margin:0 auto;padding:0 48px;height:58px;display:flex;align-items:center;gap:16px}
 .topnav .brand{display:flex;align-items:center;gap:9px;flex-shrink:0;padding:0}
 .topnav .brand .name{font-family:var(--disp);font-weight:600;font-size:.95rem;letter-spacing:-.02em;white-space:nowrap}
 .topnav-links{display:flex;align-items:stretch;height:58px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
@@ -170,8 +170,8 @@ button.stat,.stat.clickable,a.stat{cursor:pointer;transition:border-color .14s,b
 button.stat:hover,.stat.clickable:hover,a.stat:hover{border-color:var(--border-2);box-shadow:var(--shadow);transform:translateY(-1px)}
 
 /* ─── Forms ─────────────────────────────────────────────────────────────── */
-.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-.field{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:7px;min-width:150px;flex:1 1 auto}
 .field label{font-size:.8rem;color:var(--text-2);font-weight:500}
 input,select,textarea{width:100%;min-height:var(--tap);font:inherit;font-size:.9rem;color:var(--text);
   background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r);padding:8px 12px;

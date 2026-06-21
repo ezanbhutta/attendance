@@ -66,7 +66,7 @@ export default function Shifts() {
       <div className="page-title">
         <div>
           <h1>Shifts &amp; Timetables</h1>
-          <p className="page-intro">A timetable is one day’s working hours; a shift maps a timetable to each weekday. Click any value to edit it in place.</p>
+          <p className="page-intro">Working hours and weekly patterns.</p>
         </div>
       </div>
       <ErrorBanner error={err} />

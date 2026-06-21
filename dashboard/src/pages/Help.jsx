@@ -42,7 +42,7 @@ export default function Help() {
       <div className="page-title">
         <div>
           <h1>Guide</h1>
-          <p className="page-intro">Everything Attendance OS can do, in plain language. Each section says what it is for and how it helps.</p>
+          <p className="page-intro">Everything in plain language.</p>
         </div>
         <button className="btn no-print" onClick={() => window.print()}><Printer size={15} /> Print</button>
       </div>

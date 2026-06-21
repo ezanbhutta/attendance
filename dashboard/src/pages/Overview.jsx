@@ -75,7 +75,7 @@ export default function Overview() {
       <div className="page-title">
         <div>
           <h1>Overview</h1>
-          <p className="page-intro">Today at a glance. The feed updates the moment someone scans. Absences only count once a shift has started.</p>
+          <p className="page-intro">Today at a glance.</p>
         </div>
         <div className="page-tools">
           <span className="date-chip">{today}</span>

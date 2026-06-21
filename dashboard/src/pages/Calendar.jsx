@@ -38,7 +38,7 @@ export default function Calendar() {
       <div className="page-title">
         <div>
           <h1>Leave &amp; Holidays</h1>
-          <p className="page-intro">Record approved leave and public holidays so nobody is marked absent on a day they were off. Reports update on their own.</p>
+          <p className="page-intro">Approved leave and public holidays.</p>
         </div>
       </div>
       <ErrorBanner error={err} />

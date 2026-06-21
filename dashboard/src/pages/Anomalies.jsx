@@ -94,7 +94,7 @@ export default function Anomalies() {
       <div className="page-title">
         <div>
           <h1>Anomalies</h1>
-          <p className="page-intro">Days worth a second look, so nothing odd slips through. Gate only people are left out. Pick a range and a department, then click a tile to focus on one kind.</p>
+          <p className="page-intro">Days worth a second look.</p>
         </div>
         <button className="btn no-print" onClick={() => window.print()}>Print</button>
       </div>

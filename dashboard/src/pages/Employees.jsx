@@ -90,12 +90,7 @@ export default function Employees() {
       <div className="page-title">
         <div>
           <h1>Employees</h1>
-          <p className="page-intro">
-            Everyone is imported from the device automatically. <strong>Click a name to edit it.</strong> Pick a
-            <strong> Department</strong>, <strong>Shift</strong>, and <strong>Weekly off</strong>, or set
-            <strong> Gate only</strong> for people who scan to open the gate but aren’t counted. <strong>Archive</strong>
-            anyone who has left, and they stop counting everywhere until you bring them back. Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
-          </p>
+          <p className="page-intro">Last synced {lastSyncText}{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.</p>
         </div>
       </div>
       <ErrorBanner error={err || emps.error} />

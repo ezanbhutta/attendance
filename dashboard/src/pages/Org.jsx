@@ -38,7 +38,7 @@ export default function Org() {
       <div className="page-title">
         <div>
           <h1>Departments</h1>
-          <p className="page-intro">Group your team so reports can be filtered. Click a name to rename it. You assign people to a department on the Employees page.</p>
+          <p className="page-intro">Group staff so reports can be filtered.</p>
         </div>
       </div>
       <ErrorBanner error={err} />
