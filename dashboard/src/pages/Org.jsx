@@ -24,7 +24,7 @@ export default function Org() {
   function friendly(error) {
     const msg = `${error?.message || ''} ${error?.details || ''}`;
     if (error?.code === '23503' || /foreign key/i.test(msg))
-      return { message: 'Can’t delete this department — run the latest database update so deleting simply unassigns its people, or move them to another department first.' };
+      return { message: 'Cannot delete this department yet. Run the latest database update so deleting simply unassigns its people, or move them to another department first.' };
     return error;
   }
   async function delDept(id) {

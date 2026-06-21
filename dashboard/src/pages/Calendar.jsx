@@ -38,7 +38,7 @@ export default function Calendar() {
       <div className="page-title">
         <div>
           <h1>Leave &amp; Holidays</h1>
-          <p className="page-intro">Record approved leave and public holidays so nobody is marked absent on a day they were off — reports recompute automatically.</p>
+          <p className="page-intro">Record approved leave and public holidays so nobody is marked absent on a day they were off. Reports update on their own.</p>
         </div>
       </div>
       <ErrorBanner error={err} />
@@ -77,7 +77,7 @@ export default function Calendar() {
         />
       </Card>
 
-      <Card title="Holidays" help="Office-closed days — everyone is excused. Pay × marks special-pay days (e.g. 2 = double pay) for payroll.">
+      <Card title="Holidays" help="Days the office is closed and everyone is excused. Pay × marks special pay days, for example 2 for double pay.">
         <form onSubmit={addHoliday} className="row" style={{ marginBottom: 12 }}>
           <Field label="Date *"><input type="date" required value={hol.the_date} onChange={(e) => setHol({ ...hol, the_date: e.target.value })} /></Field>
           <Field label="Name *"><input required value={hol.name} onChange={(e) => setHol({ ...hol, name: e.target.value })} placeholder="Independence Day" /></Field>

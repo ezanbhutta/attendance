@@ -93,10 +93,10 @@ export default function CeoView() {
         <Stat icon={Users} tone="violet" label="Counted staff" value={counted.length}
           help="Active employees whose attendance is tracked (excludes gate-only CEO/Admin and archived people)." />
         <Stat icon={UserCheck} tone="ok" label="Present today" value={inBuilding.length} onClick={() => open('Present today', inBuilding, (r) => `in ${fmtTime(r.first_in)}`)}
-          help="Scanned in today — currently in or already completed." />
+          help="Scanned in today, either still here or already done for the day." />
         <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} hint={upcoming.length ? `${upcoming.length} not due yet` : null}
           onClick={() => open('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
-          help="Scheduled, shift started, no scan yet — excluding weekly-off and approved leave. Not-yet-due shifts aren’t counted." />
+          help="Scheduled, shift started, and still no scan. Weekly off and approved leave do not count. Shifts that have not started are left out." />
         <Stat icon={TrendingUp} tone="violet" label="Attendance rate" value={`${rate}%`}
           help="Present (in building or completed) ÷ counted staff." />
       </div>
@@ -109,7 +109,7 @@ export default function CeoView() {
           help="Scanned in but not out yet." />
       </div>
 
-      <Card title="By department — today" help="Per-department headcount vs. who’s present, absent, late, or on leave today.">
+      <Card title="By department today" help="Headcount per department against who is present, absent, late, or on leave today.">
         <Table loading={todayRows.loading} rows={byDept} empty="No attendance yet today."
           columns={[
             { key: 'department', label: 'Department' },
@@ -121,7 +121,7 @@ export default function CeoView() {
           ]} />
       </Card>
 
-      <Card title="Last 7 days" help="Daily present vs. absent over the past week — the violet bar is present, the rose bar absent.">
+      <Card title="Last 7 days" help="Present against absent each day this week. The violet bar is present, the rose bar absent.">
         {trend.length === 0 ? <div className="empty">No data yet.</div> : (
           <div className="trend">
             {trend.map((t) => (

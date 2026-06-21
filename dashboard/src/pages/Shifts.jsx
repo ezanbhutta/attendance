@@ -73,7 +73,7 @@ export default function Shifts() {
 
       <Card title="Timetables" help="A timetable defines one day’s hours: when work starts and ends, plus how many minutes of grace before someone counts as late or as leaving early.">
         <form onSubmit={addTt} className="row" style={{ marginBottom: 18 }}>
-          <Field label="Name *"><input required value={tt.name} onChange={(e) => setTt({ ...tt, name: e.target.value })} placeholder="General 09–18" /></Field>
+          <Field label="Name *"><input required value={tt.name} onChange={(e) => setTt({ ...tt, name: e.target.value })} placeholder="General 9 to 6" /></Field>
           <Field label="Check-in"><input type="time" value={tt.check_in} onChange={(e) => setTt({ ...tt, check_in: e.target.value })} /></Field>
           <Field label="Check-out"><input type="time" value={tt.check_out} onChange={(e) => setTt({ ...tt, check_out: e.target.value })} /></Field>
           <Field label="Late grace (min)"><input type="number" min="0" value={tt.late_grace_min} onChange={(e) => setTt({ ...tt, late_grace_min: +e.target.value })} /></Field>
@@ -93,7 +93,7 @@ export default function Shifts() {
         />
       </Card>
 
-      <Card title="Shifts" help="A shift is a named weekly pattern (e.g. “General” or “Night”). Below, you map a timetable to each weekday — or leave a day Off.">
+      <Card title="Shifts" help="A shift is a named weekly pattern, like General or Night. Below you map a timetable to each weekday, or leave a day off.">
         <form onSubmit={addShift} className="row" style={{ marginBottom: 18 }}>
           <Field label="Name *"><input required value={shiftName} onChange={(e) => setShiftName(e.target.value)} placeholder="General" /></Field>
           <button className="btn primary">Add shift</button>

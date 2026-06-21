@@ -33,7 +33,7 @@ export default function Corrections() {
       <div className="page-title">
         <div>
           <h1>Fix a punch</h1>
-          <p className="page-intro">Missed or failed scan? Add a tracked manual entry with a reason. The tamper-proof raw record is never edited — every fix is logged and feeds the reports. Times are {APP_TZ}.</p>
+          <p className="page-intro">Missed or failed scan? Add a manual entry with a reason. The raw record is never changed. Every fix is logged and feeds the reports. Times are {APP_TZ}.</p>
         </div>
       </div>
       <ErrorBanner error={err} />
@@ -47,12 +47,12 @@ export default function Corrections() {
             </select>
           </Field>
           <Field label="Date &amp; time *"><input type="datetime-local" required value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} /></Field>
-          <Field label="Reason *"><input required value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Scanner failed — verified by lead" /></Field>
+          <Field label="Reason *"><input required value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Scanner failed, verified by lead" /></Field>
           <button className="btn primary">Add</button>
         </form>
       </Card>
 
-      <Card title="Recent corrections" help="Every manual entry — who added it, when, and why. A clean, accountable audit trail.">
+      <Card title="Recent corrections" help="Every manual entry, who added it, when, and why. A clean record you can trust.">
         <Table
           loading={logs.loading} rows={logs.data} empty="No corrections recorded."
           columns={[

@@ -111,7 +111,7 @@ export default function Reports() {
     { key: 'attendance', label: 'Attendance', num: true,
       render: (r) => { const s = r.present + r.incomplete + r.absent; return s ? `${Math.round(((r.present + r.incomplete) / s) * 100)}%` : '—'; },
       csv: (r) => { const s = r.present + r.incomplete + r.absent; return s ? Math.round(((r.present + r.incomplete) / s) * 100) : ''; } },
-    { key: 'punctual', label: 'On-time', num: true,
+    { key: 'punctual', label: 'On time', num: true,
       render: (r) => { const a = r.present + r.incomplete; return a ? `${Math.round(((a - r.late) / a) * 100)}%` : '—'; },
       csv: (r) => { const a = r.present + r.incomplete; return a ? Math.round(((a - r.late) / a) * 100) : ''; } },
     { key: 'late', label: 'Late days', num: true },
@@ -138,13 +138,13 @@ export default function Reports() {
 
   return (
     <>
-      <PrintHeader title={`Attendance Report — ${viewLabel}`}
+      <PrintHeader title={`Attendance report: ${viewLabel}`}
         subtitle={`${fmtDate(from)} to ${fmtDate(to)}${filterNote ? ` · ${filterNote}` : ''}`} />
 
       <div className="page-title">
         <div>
           <h1>Reports</h1>
-          <p className="page-intro">Pick a view and filters, then export a clean PDF or CSV. Gate-only people are never included.</p>
+          <p className="page-intro">Pick a view and filters, then export a clean PDF or CSV. Gate only people are never included.</p>
         </div>
         <div className="inline-actions no-print">
           <button className="btn" onClick={exportCSV} disabled={!data.length}><Download size={15} /> CSV</button>
@@ -177,7 +177,7 @@ export default function Reports() {
             <select value={emp} onChange={(e) => setEmp(e.target.value)}>
               <option value="">All</option>
               {(emps.data ?? []).filter((e) => e.track_attendance).map((e) => (
-                <option key={e.id} value={e.id}>{e.emp_code} — {empName(e)}</option>
+                <option key={e.id} value={e.id}>{e.emp_code} · {empName(e)}</option>
               ))}
             </select>
           </Field>
@@ -200,7 +200,7 @@ export default function Reports() {
       </div>
 
       <ErrorBanner error={report.error} />
-      <Card title={`${viewLabel} · ${fmtDate(from)} – ${fmtDate(to)}`} help="In grouped views, Attendance % = days present ÷ days scheduled, and On-time % = of the days attended, how many were not late. Export the exact rows as CSV or a clean PDF.">
+      <Card title={`${viewLabel} · ${fmtDate(from)} to ${fmtDate(to)}`} help="In grouped views, Attendance % is days present divided by days scheduled. On time % is the share of attended days that were not late. Export the rows as CSV or a clean PDF.">
 
         <Table loading={report.loading} rows={data} columns={cols} empty="No rows for this range / filter." />
       </Card>

@@ -7,7 +7,7 @@ import { Card, Field, Table, ConfirmButton, ErrorBanner, Badge } from '../compon
 function friendlyDelete(error) {
   const msg = `${error?.message || ''} ${error?.details || ''}`;
   if (error?.code === '23503' || /foreign key/i.test(msg)) {
-    return { message: 'Can’t delete this person yet — run the latest database update (so their attendance and PIN link delete with them), then try again. Tip: Archive keeps the record but stops counting them.' };
+    return { message: 'Cannot delete this person yet. Run the latest database update so their attendance and PIN link delete with them, then try again. Tip: archiving keeps the record but stops counting them.' };
   }
   return error;
 }
@@ -80,7 +80,7 @@ export default function Employees() {
             Everyone is imported from the device automatically. <strong>Click a name to edit it.</strong> Pick a
             <strong> Department</strong>, <strong>Shift</strong>, and <strong>Weekly off</strong>, or set
             <strong> Gate only</strong> for people who scan to open the gate but aren’t counted. <strong>Archive</strong>
-            anyone who has left — they stop counting everywhere until you restore them. Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
+            anyone who has left, and they stop counting everywhere until you bring them back. Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
           </p>
         </div>
       </div>
@@ -89,7 +89,7 @@ export default function Employees() {
       {unknown.data?.length > 0 && (
         <div className="callout warn">
           <strong>{unknown.data.length} PIN(s) scanned but not linked to a person yet</strong> ({unknown.data.map((u) => u.pin).join(', ')}).
-          They link automatically on the next device sync — click <strong>Sync</strong> in the top bar. If a PIN isn’t a real user, ignore it from the Overview.
+          They link on the next device sync. Press <strong>Sync</strong> in the top bar. If a PIN is not a real user, ignore it from the Overview.
         </div>
       )}
 
@@ -107,7 +107,7 @@ export default function Employees() {
         </div>
         <Table
           loading={emps.loading} rows={rows}
-          empty={term ? 'No matches.' : archived ? 'Nobody archived.' : 'No employees yet — click Sync to import them from the device.'}
+          empty={term ? 'No matches.' : archived ? 'Nobody archived.' : 'No employees yet. Press Sync to bring them in from the device.'}
           columns={[
             { key: 'emp_code', label: 'PIN', render: (r) => <span className="mono">{r.emp_code}</span> },
             { key: 'name', label: 'Name', sort: (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim(), render: (r) => {
@@ -159,18 +159,18 @@ export default function Employees() {
             { key: 'act', label: '', render: (r) => (
               r.active === false ? (
                 <span className="inline-actions">
-                  <button className="btn sm" onClick={() => updateEmp(r.id, { active: true })} title="Restore — start counting again"><RotateCcw size={13} /> Restore</button>
+                  <button className="btn sm" onClick={() => updateEmp(r.id, { active: true })} title="Bring back and start counting again"><RotateCcw size={13} /> Restore</button>
                   <ConfirmButton onConfirm={() => delEmp(r.id)} />
                 </span>
               ) : (
-                <button className="btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive — stop counting until restored"><Archive size={13} /> Archive</button>
+                <button className="btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive and stop counting until you bring them back"><Archive size={13} /> Archive</button>
               )
             ) },
           ]}
         />
       </Card>
 
-      <Card title="Add someone manually" help="Rarely needed — the device sync adds people automatically. Use this only to pre-create a person before they’re enrolled on the device.">
+      <Card title="Add someone manually" help="Rarely needed. The device sync adds people on its own. Use this only to add someone before they are enrolled on the device.">
         <form onSubmit={addEmp} className="row">
           <Field label="PIN / Code *"><input required value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. 28" /></Field>
           <Field label="First name *"><input required value={form.first_name} onChange={set('first_name')} /></Field>
