@@ -43,9 +43,15 @@ const F = {
     { device_sn: 'NYU7253801246', pin: '9', punches: 1, first_seen: _at(13, 2), last_seen: _at(13, 2) },
   ],
   employees: [
-    { id: 1, name: 'Salman Khan', emp_code: '1042', department: 'Creative', active: true, methods: 'face' },
-    { id: 2, name: 'Ayesha Malik', emp_code: '1108', department: 'Accounts', active: true, methods: 'face,fingerprint' },
-    { id: 3, name: 'Bilal Ahmed', emp_code: '1067', department: 'Production', active: true, methods: 'fingerprint' },
+    { id: 1, emp_code: '1042', first_name: 'Salman', last_name: 'Khan', track_attendance: true, weekly_off: 0, department_id: 1, shift_id: 1, active: true, department: { name: 'Creative' }, shift: { name: 'General' } },
+    { id: 2, emp_code: '1108', first_name: 'Ayesha', last_name: 'Malik', track_attendance: true, weekly_off: null, department_id: 2, shift_id: 1, active: true, department: { name: 'Accounts' }, shift: { name: 'General' } },
+    { id: 3, emp_code: '1067', first_name: 'Bilal', last_name: 'Ahmed', track_attendance: false, weekly_off: null, department_id: 3, shift_id: null, active: true, department: { name: 'Production' }, shift: null },
+    { id: 4, emp_code: '1090', first_name: 'Usman', last_name: 'Tariq', track_attendance: true, weekly_off: 6, department_id: 3, shift_id: 2, active: false, department: { name: 'Production' }, shift: { name: 'Night' } },
+  ],
+  v_employee_methods: [
+    { employee_id: 1, has_face: true, has_finger: false, has_card: false, card_no: null },
+    { employee_id: 2, has_face: true, has_finger: true, has_card: false, card_no: null },
+    { employee_id: 3, has_face: false, has_finger: true, has_card: true, card_no: '0098213' },
   ],
   departments: [{ id: 1, name: 'Creative' }, { id: 2, name: 'Accounts' }, { id: 3, name: 'Production' }],
   shifts: [{ id: 1, name: 'General' }, { id: 2, name: 'Night' }],

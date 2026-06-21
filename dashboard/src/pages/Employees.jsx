@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Archive, RotateCcw } from 'lucide-react';
 import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
-import { Card, Field, Table, ConfirmButton, ErrorBanner } from '../components/ui.jsx';
+import { Card, Field, Table, ConfirmButton, ErrorBanner, Badge } from '../components/ui.jsx';
 
-// A foreign-key delete error, in plain words.
 function friendlyDelete(error) {
   const msg = `${error?.message || ''} ${error?.details || ''}`;
   if (error?.code === '23503' || /foreign key/i.test(msg)) {
-    return { message: 'Can’t delete this person yet — run the latest database update (so their attendance and PIN link delete with them), then try again.' };
+    return { message: 'Can’t delete this person yet — run the latest database update (so their attendance and PIN link delete with them), then try again. Tip: Archive keeps the record but stops counting them.' };
   }
   return error;
 }
@@ -16,16 +15,18 @@ function friendlyDelete(error) {
 export default function Employees() {
   const emps = useQuery(() =>
     supabase.from('employees')
-      .select('id,emp_code,first_name,last_name,track_attendance,weekly_off,department_id,shift_id,department:departments(name),shift:shifts(name)')
+      .select('id,emp_code,first_name,last_name,track_attendance,weekly_off,department_id,shift_id,active,department:departments(name),shift:shifts(name)')
       .order('emp_code'), []);
   const depts = useQuery(() => supabase.from('departments').select('id,name').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
+  const methods = useQuery(() => supabase.from('v_employee_methods').select('*'), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*').order('punches', { ascending: false }), []);
   const health = useQuery(() => supabase.from('v_device_health').select('last_user_sync,last_user_sync_count').eq('sn', DEVICE_SN), []);
 
   const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', shift_id: '' });
   const [err, setErr] = useState(null);
   const [q, setQ] = useState('');
+  const [archived, setArchived] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   async function addEmp(e) {
@@ -42,8 +43,6 @@ export default function Employees() {
     if (error) return setErr(error);
     emps.refetch();
   }
-  // Edit a name in the dashboard: first word -> first name, the rest -> last name.
-  // (This stays put across device syncs; it never gets overwritten.)
   async function saveName(id, value) {
     const name = (value || '').trim();
     if (!name) return;
@@ -58,9 +57,15 @@ export default function Employees() {
 
   const deptOpts = depts.data ?? [];
   const shiftOpts = shifts.data ?? [];
+  const methodMap = {};
+  (methods.data ?? []).forEach((m) => { methodMap[m.employee_id] = m; });
+  const all = emps.data ?? [];
+  const activeCount = all.filter((r) => r.active !== false).length;
+  const archivedCount = all.length - activeCount;
   const term = q.trim().toLowerCase();
-  const rows = (emps.data ?? []).filter((r) =>
-    !term || `${r.first_name} ${r.last_name ?? ''} ${r.emp_code}`.toLowerCase().includes(term));
+  const rows = all
+    .filter((r) => (archived ? r.active === false : r.active !== false))
+    .filter((r) => !term || `${r.first_name} ${r.last_name ?? ''} ${r.emp_code}`.toLowerCase().includes(term));
   const sync = health.data?.[0];
   const lastSyncText = sync?.last_user_sync
     ? new Date(sync.last_user_sync).toLocaleString('en-GB', { timeZone: APP_TZ, dateStyle: 'medium', timeStyle: 'short' })
@@ -72,10 +77,10 @@ export default function Employees() {
         <div>
           <h1>Employees</h1>
           <p className="page-intro">
-            Everyone is imported from the device automatically. <strong>Click a name to edit it.</strong> For
-            each person pick a <strong>Department</strong>, <strong>Shift</strong>, and <strong>Weekly off</strong> —
-            or set <strong>Gate only</strong> for people who scan to open the gate but aren’t counted (CEO/Admin).
-            Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
+            Everyone is imported from the device automatically. <strong>Click a name to edit it.</strong> Pick a
+            <strong> Department</strong>, <strong>Shift</strong>, and <strong>Weekly off</strong>, or set
+            <strong> Gate only</strong> for people who scan to open the gate but aren’t counted. <strong>Archive</strong>
+            anyone who has left — they stop counting everywhere until you restore them. Last synced: <strong>{lastSyncText}</strong>{sync?.last_user_sync_count ? ` · ${sync.last_user_sync_count} on device` : ''}.
           </p>
         </div>
       </div>
@@ -83,29 +88,45 @@ export default function Employees() {
 
       {unknown.data?.length > 0 && (
         <div className="callout warn">
-          <strong>{unknown.data.length} PIN(s) have punched but aren’t linked to a person yet.</strong>{' '}
-          Restart the catcher to import them (PIN{unknown.data.length > 1 ? 's' : ''}: {unknown.data.map((u) => u.pin).join(', ')}).
+          <strong>{unknown.data.length} PIN(s) scanned but not linked to a person yet</strong> ({unknown.data.map((u) => u.pin).join(', ')}).
+          They link automatically on the next device sync — click <strong>Sync</strong> in the top bar. If a PIN isn’t a real user, ignore it from the Overview.
         </div>
       )}
 
-      <Card title="All employees">
+      <Card title="All employees" help="Everyone the device knows. Counted = their attendance is tracked. Gate-only = they can open the gate but don’t count. Methods shows how they’ve scanned (face / fingerprint / card).">
         <div className="toolbar">
           <span className="search-wrap">
             <Search size={16} className="search-ico" />
             <input className="search" placeholder="Search name or PIN…" value={q} onChange={(e) => setQ(e.target.value)} />
           </span>
+          <div className="tabs" style={{ margin: 0 }}>
+            <button className={!archived ? 'active' : ''} onClick={() => setArchived(false)}>Active ({activeCount})</button>
+            <button className={archived ? 'active' : ''} onClick={() => setArchived(true)}>Archived ({archivedCount})</button>
+          </div>
           <span className="count-pill">{rows.length} {rows.length === 1 ? 'person' : 'people'}</span>
         </div>
         <Table
-          loading={emps.loading} rows={rows} empty={term ? 'No matches.' : 'No employees yet — start the catcher to import them from the device.'}
+          loading={emps.loading} rows={rows}
+          empty={term ? 'No matches.' : archived ? 'Nobody archived.' : 'No employees yet — click Sync to import them from the device.'}
           columns={[
-            { key: 'emp_code', label: 'PIN' },
+            { key: 'emp_code', label: 'PIN', render: (r) => <span className="mono">{r.emp_code}</span> },
             { key: 'name', label: 'Name', render: (r) => {
               const full = `${r.first_name} ${r.last_name ?? ''}`.trim();
               return (
                 <input className="compact name-edit" defaultValue={full} aria-label="Name"
                   onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                   onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== full) saveName(r.id, v); }} />
+              );
+            } },
+            { key: 'methods', label: 'Methods', render: (r) => {
+              const m = methodMap[r.id];
+              if (!m || (!m.has_face && !m.has_finger && !m.has_card)) return <span className="muted">—</span>;
+              return (
+                <span className="pill-row">
+                  {m.has_face && <Badge value="face" kind="face" />}
+                  {m.has_finger && <Badge value="fingerprint" kind="fingerprint" />}
+                  {m.has_card && <Badge value={m.card_no ? `card ${m.card_no}` : 'card'} kind="Leave" />}
+                </span>
               );
             } },
             { key: 'department', label: 'Department', render: (r) => (
@@ -135,12 +156,21 @@ export default function Employees() {
                 <option value="0">Sunday</option>
               </select>
             ) },
-            { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={() => delEmp(r.id)} /> },
+            { key: 'act', label: '', render: (r) => (
+              r.active === false ? (
+                <span className="inline-actions">
+                  <button className="btn sm" onClick={() => updateEmp(r.id, { active: true })} title="Restore — start counting again"><RotateCcw size={13} /> Restore</button>
+                  <ConfirmButton onConfirm={() => delEmp(r.id)} />
+                </span>
+              ) : (
+                <button className="btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive — stop counting until restored"><Archive size={13} /> Archive</button>
+              )
+            ) },
           ]}
         />
       </Card>
 
-      <Card title="Add someone manually (rarely needed — the device sync adds people for you)">
+      <Card title="Add someone manually" help="Rarely needed — the device sync adds people automatically. Use this only to pre-create a person before they’re enrolled on the device.">
         <form onSubmit={addEmp} className="row">
           <Field label="PIN / Code *"><input required value={form.emp_code} onChange={set('emp_code')} placeholder="e.g. 28" /></Field>
           <Field label="First name *"><input required value={form.first_name} onChange={set('first_name')} /></Field>

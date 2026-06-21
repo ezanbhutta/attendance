@@ -173,7 +173,7 @@ select{appearance:none;padding-right:34px;cursor:pointer;
 :root[data-theme="dark"] select{color-scheme:dark}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
 .btn:focus-visible,.nav a:focus-visible,.icon-btn:focus-visible,button:focus-visible{outline:none;box-shadow:var(--ring)}
-select.compact{min-height:34px;padding:5px 28px 5px 11px;font-size:.86rem;border-radius:var(--r-sm)}
+select.compact{min-width:96px;min-height:34px;padding:5px 26px 5px 10px;font-size:.86rem;border-radius:var(--r-sm)}
 select.compact:disabled{opacity:.5}
 input.name-edit{min-width:150px;max-width:240px;min-height:34px;padding:5px 10px;font-weight:500;border-color:transparent;background:transparent}
 input.name-edit:hover{border-color:var(--border-2);background:var(--surface-2)}
