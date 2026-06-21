@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth.jsx';
 import { Card, Field, ErrorBanner } from './ui.jsx';
+import HMLogo from './HMLogo.jsx';
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -20,8 +21,15 @@ export default function Login() {
 
   return (
     <div className="login-wrap">
-      <Card className="login-card" title="Attendance OS">
-        <p className="muted" style={{ marginTop: 0 }}>Sign in to manage attendance.</p>
+      <Card className="login-card">
+        <div className="login-brand">
+          <HMLogo size={56} />
+          <div style={{ textAlign: 'center' }}>
+            <div className="name">Attendance OS</div>
+            <div className="sub">HaseebMadeIt</div>
+          </div>
+        </div>
+        <p className="muted" style={{ marginTop: 0, textAlign: 'center' }}>Sign in to manage attendance.</p>
         <ErrorBanner error={error} />
         <form onSubmit={submit} className="grid" style={{ gap: 12 }}>
           <Field label="Email">

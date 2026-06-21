@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import { IS_DESKTOP } from '../lib/supabase';
 import SyncButton from './SyncButton.jsx';
+import HMLogo from './HMLogo.jsx';
 
 const NAV = [
   ['/', '▦', 'Overview', true],
@@ -21,7 +22,13 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand"><span className="dot" /> Attendance OS</div>
+        <div className="brand">
+          <HMLogo size={38} />
+          <div>
+            <div className="name">Attendance OS</div>
+            <div className="sub">HaseebMadeIt</div>
+          </div>
+        </div>
         <nav className="nav">
           {NAV.map(([to, ico, label, end]) => (
             <NavLink key={to} to={to} end={end}>
