@@ -34,7 +34,7 @@
 :root{
   --r-card:9px; --r:6px; --r-sm:5px; --tap:38px;
   --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  --disp:'Space Grotesk','Inter',sans-serif;
+  --disp:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
 }
 
@@ -87,7 +87,7 @@ p{margin:0}
 .topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
 .user-chip{display:inline-flex;align-items:center;gap:8px}
 .user-chip .user-email{font-size:.85rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.content{padding:34px 32px 64px;max-width:1200px;width:100%;margin:0 auto}
+.content{padding:40px 36px 72px;max-width:1200px;width:100%;margin:0 auto}
 
 /* ─── Top navigation: centered, clean discipline system ────────────────── */
 .app{min-height:100vh;display:flex;flex-direction:column}
@@ -126,21 +126,23 @@ p{margin:0}
 .date-chip{font-family:var(--mono);font-size:.78rem;color:var(--muted);border:1px solid var(--border);padding:7px 12px;border-radius:var(--r);background:var(--surface)}
 
 /* ─── Cards ─────────────────────────────────────────────────────────────── */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-sm);margin-bottom:22px;overflow:hidden}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-sm);margin-bottom:24px;overflow:hidden}
 .card.overflow-visible{overflow:visible}
-.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--hairline);flex-wrap:wrap}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--hairline);flex-wrap:wrap}
 .card-head h2{font-size:1rem;display:flex;align-items:center;gap:7px}
 .card-head .sub{font-size:.8rem;color:var(--muted);margin-top:3px;font-weight:400}
-.card-body{padding:22px}
+.card-body{padding:24px}
 .card-body.flush{padding:6px 8px}
-.grid{display:grid;gap:18px}
+.grid{display:grid;gap:20px;margin-bottom:24px}
+.grid:last-child{margin-bottom:0}
+.grid .card{margin-bottom:0}            /* the grid owns the spacing, not the cards inside it */
 .grid.cols-2{grid-template-columns:repeat(2,1fr)}
 .grid.cols-3{grid-template-columns:repeat(3,1fr)}
 .grid.cols-4{grid-template-columns:repeat(4,1fr)}
 
 /* ─── Stat tiles: eyebrow + icon row, then a big medium metric ─────────── */
-.stat{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r-card);padding:18px 20px;box-shadow:var(--shadow-sm);text-align:left;min-width:0}
+.stat{display:flex;flex-direction:column;gap:18px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-card);padding:24px 22px;box-shadow:var(--shadow-sm);text-align:left;min-width:0}
 .stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .stat .label{font-family:var(--mono);font-size:.66rem;font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .stat-icon{width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;flex-shrink:0;background:var(--surface-2);color:var(--muted)}
@@ -150,7 +152,7 @@ p{margin:0}
 .stat-icon.warn{color:var(--warn);background:var(--warn-weak)}
 .stat-icon.sky{color:var(--sky);background:var(--sky-weak)}
 .stat-body{display:flex;flex-direction:column;gap:3px}
-.stat .value{font-family:var(--disp);font-size:1.95rem;font-weight:600;letter-spacing:-.03em;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+.stat .value{font-family:var(--disp);font-size:2rem;font-weight:600;letter-spacing:-.02em;line-height:1.05;color:var(--text);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .stat .value small{font-size:.85rem;color:var(--dim);font-weight:500;margin-left:3px;letter-spacing:0}
 .stat .hint{font-size:.78rem;color:var(--muted)}
 .delta{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:.72rem;font-weight:500}
