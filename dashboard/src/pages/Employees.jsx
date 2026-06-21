@@ -39,7 +39,7 @@ export default function Employees() {
     const { error } = await supabase.from('device_user_pushes')
       .insert({ device_sn: DEVICE_SN, pin: r.emp_code, name, card_no });
     if (error) return setErr(error);
-    setNotice(`Sent ${name || `PIN ${r.emp_code}`} to the device. Name, PIN${card_no ? ' and card' : ''} will be set on the next sync. Face and fingerprint are enrolled at the device.`);
+    setNotice(`Sent ${name || `PIN ${r.emp_code}`} to the device. Their name${card_no ? ' and card' : ''} will be set or updated on the next sync, without touching their face or fingerprint.`);
   }
 
   async function addEmp(e) {
