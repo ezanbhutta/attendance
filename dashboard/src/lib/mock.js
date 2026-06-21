@@ -30,7 +30,16 @@ const F = {
     { id: 3, name: 'Bilal Ahmed', emp_code: '1067', department: 'Production', active: true, methods: 'fingerprint' },
   ],
   departments: [{ id: 1, name: 'Creative' }, { id: 2, name: 'Accounts' }, { id: 3, name: 'Production' }],
-  shifts: [{ id: 1, name: 'Morning', start: '09:00', end: '17:00' }, { id: 2, name: 'Night', start: '21:00', end: '05:00' }],
+  shifts: [{ id: 1, name: 'General' }, { id: 2, name: 'Night' }],
+  timetables: [
+    { id: 1, name: 'General 09–18', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10 },
+    { id: 2, name: 'Night 21–06', check_in: '21:00', check_out: '06:00', late_grace_min: 10, early_leave_grace_min: 10 },
+  ],
+  shift_details: [
+    { id: 1, shift_id: 1, day_index: 1, timetable_id: 1 },
+    { id: 2, shift_id: 1, day_index: 2, timetable_id: 1 },
+    { id: 3, shift_id: 1, day_index: 3, timetable_id: 1 },
+  ],
 };
 
 function thenable(data) {

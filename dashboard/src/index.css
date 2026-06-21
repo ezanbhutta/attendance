@@ -128,7 +128,7 @@ p{margin:0}
 /* ─── Cards ─────────────────────────────────────────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow-sm);margin-bottom:22px;overflow:hidden}
 .card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--hairline);flex-wrap:wrap}
-.card-head h2{font-size:1rem}
+.card-head h2{font-size:1rem;display:flex;align-items:center;gap:7px}
 .card-head .sub{font-size:.8rem;color:var(--muted);margin-top:3px;font-weight:400}
 .card-body{padding:22px}
 .card-body.flush{padding:6px 8px}
@@ -141,7 +141,7 @@ p{margin:0}
 .stat{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--border);
   border-radius:var(--r-card);padding:18px 20px;box-shadow:var(--shadow-sm);text-align:left;min-width:0}
 .stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.stat .label{font-family:var(--mono);font-size:.66rem;font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+.stat .label{font-family:var(--mono);font-size:.66rem;font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .stat-icon{width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;flex-shrink:0;background:var(--surface-2);color:var(--muted)}
 .stat-icon.violet{color:var(--accent);background:var(--accent-weak)}
 .stat-icon.ok{color:var(--ok);background:var(--ok-weak)}
@@ -221,6 +221,16 @@ td strong{font-weight:600;color:var(--text)}
 .badge.face{background:var(--accent-weak);color:var(--accent);border-color:transparent}
 .badge.fingerprint{background:var(--sky-weak);color:var(--sky);border-color:transparent}
 .count-pill{font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
+
+/* ─── "Know mark" — hover/focus info tooltip ───────────────────────────── */
+.infotip{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;color:var(--dim);cursor:help;flex-shrink:0;vertical-align:middle;transition:color .12s}
+.infotip:hover,.infotip:focus-visible{color:var(--accent);outline:none}
+.infotip-bubble{position:absolute;top:calc(100% + 9px);left:-8px;transform:translateY(-4px);width:max-content;max-width:240px;
+  background:var(--text);color:var(--surface);font-family:var(--font);font-size:.78rem;font-weight:400;line-height:1.45;
+  letter-spacing:0;text-transform:none;text-align:left;white-space:normal;padding:9px 12px;border-radius:8px;
+  box-shadow:var(--shadow-lg);opacity:0;visibility:hidden;transition:opacity .14s,transform .14s;z-index:60;pointer-events:none}
+.infotip-bubble::after{content:'';position:absolute;bottom:100%;left:13px;border:5px solid transparent;border-bottom-color:var(--text)}
+.infotip:hover .infotip-bubble,.infotip:focus-visible .infotip-bubble{opacity:1;visibility:visible;transform:translateY(0)}
 
 /* ─── Tabs / toolbar ────────────────────────────────────────────────────── */
 .tabs{display:inline-flex;gap:3px;flex-wrap:wrap;margin-bottom:22px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px}
