@@ -54,6 +54,8 @@ export default function Overview() {
   const stillIn = rows.filter((r) => r.status === 'Incomplete');
   const absent = rows.filter((r) => r.status === 'Absent' && started(r));    // shift started + no scan
   const upcoming = rows.filter((r) => r.status === 'Absent' && !started(r));  // shift not due yet
+  const counted = (roster.data ?? []).filter((e) => e.track_attendance && e.active !== false).length;
+  const share = (n) => (counted ? (n / counted) * 100 : 0);   // a group's share of counted staff, for the tile bar
 
   const open = (title, list, right) =>
     setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, list, right });
@@ -103,17 +105,20 @@ export default function Overview() {
       )}
 
       <div className="grid cols-4">
-        <Stat icon={UserCheck} tone="ok" label="Present" value={present.length}
+        <Stat icon={UserCheck} tone="ok" label="Present" value={present.length} bar={share(present.length)}
+          hint={`of ${counted} counted`}
           onClick={() => open('Present today', present, (r) => `in ${fmtTime(r.first_in)}`)}
           help="Scanned in and out for a shift that has started today. Click to see who." />
-        <Stat icon={Clock} tone="warn" label="Late" value={late.length}
+        <Stat icon={Clock} tone="warn" label="Late" value={late.length} bar={share(late.length)}
+          hint="arrived after grace"
           onClick={() => open('Late arrivals', late, (r) => `${r.late_minutes}m late`)}
           help="Scanned in after their shift’s start time plus the grace period." />
-        <Stat icon={Hourglass} tone="violet" label="Still in" value={stillIn.length}
+        <Stat icon={Hourglass} tone="violet" label="Still in" value={stillIn.length} bar={share(stillIn.length)}
+          hint="not scanned out"
           onClick={() => open('Still in', stillIn, (r) => `in ${fmtTime(r.first_in)}`)}
           help="Scanned in but haven’t scanned out yet." />
-        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length}
-          hint={upcoming.length ? `${upcoming.length} not due yet` : null}
+        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} bar={share(absent.length)}
+          hint={upcoming.length ? `${upcoming.length} not due yet` : 'shift started, no scan'}
           onClick={() => open('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
           help="Scheduled today, their shift has started, and still no scan. Weekly off and approved leave are not counted. Anyone whose shift has not started yet shows as not due yet." />
       </div>

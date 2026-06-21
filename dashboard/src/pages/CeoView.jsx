@@ -45,6 +45,7 @@ export default function CeoView() {
   const leave = rows.filter((r) => r.status === 'Leave');
   const inBuilding = [...present, ...incomplete];
   const rate = counted.length ? Math.min(100, Math.round((inBuilding.length / counted.length) * 100)) : 0;
+  const share = (n) => (counted.length ? (n / counted.length) * 100 : 0);   // share of counted staff, for tile bars
 
   const headByDept = useMemo(() => {
     const m = new Map();
@@ -129,21 +130,29 @@ export default function CeoView() {
 
       <div className="grid cols-4">
         <Stat icon={Users} tone="violet" label="Counted staff" value={counted.length}
+          hint={`${headByDept.size} department${headByDept.size === 1 ? '' : 's'}`}
           help="Active staff whose attendance is tracked. Gate only and archived people are left out." />
-        <Stat icon={UserCheck} tone="ok" label="Present today" value={inBuilding.length} onClick={() => openPeople('Present today', inBuilding, (r) => `in ${fmtTime(r.first_in)}`)}
+        <Stat icon={UserCheck} tone="ok" label="Present today" value={inBuilding.length} bar={share(inBuilding.length)}
+          hint={`${rate}% of staff`}
+          onClick={() => openPeople('Present today', inBuilding, (r) => `in ${fmtTime(r.first_in)}`)}
           help="Scanned in today, either still here or already done." />
-        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} hint={upcoming.length ? `${upcoming.length} not due yet` : null}
+        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} bar={share(absent.length)}
+          hint={upcoming.length ? `${upcoming.length} not due yet` : 'shift started, no scan'}
           onClick={() => openPeople('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
           help="Scheduled, shift started, and no scan yet. Weekly off and approved leave are left out." />
-        <Stat icon={TrendingUp} tone="violet" label="Attendance rate" value={`${rate}%`}
+        <Stat icon={TrendingUp} tone={rate >= 90 ? 'ok' : 'violet'} label="Attendance rate" value={`${rate}%`} bar={rate}
+          hint={`${inBuilding.length} of ${counted.length} in`}
           help="Present, whether still here or done, divided by counted staff." />
       </div>
       <div className="grid cols-3">
-        <Stat icon={Clock} tone="warn" label="Late arrivals" value={late.length} onClick={() => openPeople('Late arrivals', late, (r) => `${r.late_minutes}m late`)}
+        <Stat icon={Clock} tone="warn" label="Late arrivals" value={late.length} bar={share(late.length)}
+          hint="after shift start" onClick={() => openPeople('Late arrivals', late, (r) => `${r.late_minutes}m late`)}
           help="Scanned in after their shift start plus grace." />
-        <Stat icon={Plane} tone="sky" label="On leave" value={leave.length} onClick={() => openPeople('On leave', leave)}
+        <Stat icon={Plane} tone="sky" label="On leave" value={leave.length} bar={share(leave.length)}
+          hint="approved today" onClick={() => openPeople('On leave', leave)}
           help="On approved leave today." />
-        <Stat icon={Hourglass} tone="violet" label="Still in" value={incomplete.length} onClick={() => openPeople('Still in', incomplete, (r) => `in ${fmtTime(r.first_in)}`)}
+        <Stat icon={Hourglass} tone="violet" label="Still in" value={incomplete.length} bar={share(incomplete.length)}
+          hint="not scanned out" onClick={() => openPeople('Still in', incomplete, (r) => `in ${fmtTime(r.first_in)}`)}
           help="Scanned in but not out yet." />
       </div>
 

@@ -59,7 +59,7 @@ export function InfoTip({ text, label = 'What is this?' }) {
 
 // Metric tile: eyebrow label + small icon on top, then a large medium-weight
 // metric. tone: ok | danger | warn | violet | sky. Optional onClick → drill-in.
-export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, onClick, help }) {
+export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, onClick, help, bar }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag className={`stat${onClick ? ' clickable' : ''}`} onClick={onClick}>
@@ -70,9 +70,12 @@ export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, o
       <div className="stat-body">
         <div className="value">{value}</div>
         {(delta || hint) && (
-          <div className="hint">{delta && <span className={`delta ${delta.dir}`}>{delta.text}</span>} {hint}</div>
+          <div className="hint">{delta && <span className={`delta ${delta.dir}`}>{delta.text}</span>}{hint}</div>
         )}
       </div>
+      {typeof bar === 'number' && (
+        <span className="stat-bar"><i className={tone} style={{ width: `${Math.max(2, Math.min(100, bar))}%` }} /></span>
+      )}
     </Tag>
   );
 }

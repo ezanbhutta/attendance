@@ -8,26 +8,29 @@
    ════════════════════════════════════════════════════════════════════════════ */
 
 :root{
-  --bg:#F5F5F7; --surface:#FFFFFF; --surface-2:#F1F1F4; --surface-3:#EAEAEE;
-  --text:#191922; --text-2:#3C3C46; --muted:#6E6E7A; --dim:#9A9AA6;
-  --border:#E8E8EC; --border-2:#DCDCE3; --hairline:#EEEEF1;
-  --accent:#6D34E6; --accent-2:#5A27CC; --accent-weak:#F2EDFE; --on-accent:#FFFFFF;
-  --ok:#10885E; --ok-weak:#E7F5EF; --warn:#9A6B12; --warn-weak:#F8F0DE;
-  --danger:#CE2353; --danger-weak:#FBE9EF; --sky:#0B72C4; --sky-weak:#E6F1FB;
-  --shadow-sm:0 1px 2px rgba(20,18,40,.05);
-  --shadow:0 1px 2px rgba(20,18,40,.04),0 6px 16px rgba(20,18,40,.06);
-  --shadow-lg:0 1px 2px rgba(20,18,40,.05),0 16px 40px rgba(20,18,40,.10);
-  --ring:0 0 0 3px rgba(109,52,230,.18);
+  /* No pure neutrals: every surface, border and shadow carries a trace of the
+     violet brand hue, the way Linear / Stripe / Vercel do. That single decision
+     is what reads as "expensive". */
+  --bg:#F3F1FA; --surface:#FCFBFF; --surface-2:#EFECF8; --surface-3:#E5E1F2;
+  --text:#1B1726; --text-2:#3B3650; --muted:#6B6682; --dim:#9A95AC;
+  --border:#E7E2F2; --border-2:#D8D2E8; --hairline:#EEEAF7;
+  --accent:#6D34E6; --accent-2:#5A27CC; --accent-weak:#F1ECFD; --on-accent:#FFFFFF;
+  --ok:#0E8A5F; --ok-weak:#E3F4ED; --warn:#946312; --warn-weak:#F6EEDB;
+  --danger:#CB2150; --danger-weak:#FBE7EE; --sky:#0A6FC2; --sky-weak:#E3EFFA;
+  --shadow-sm:0 1px 2px rgba(53,38,104,.06);
+  --shadow:0 1px 2px rgba(53,38,104,.05),0 8px 22px rgba(53,38,104,.09);
+  --shadow-lg:0 1px 2px rgba(53,38,104,.06),0 22px 48px rgba(45,30,92,.15);
+  --ring:0 0 0 3px rgba(109,52,230,.20);
 }
 :root[data-theme="dark"]{
-  --bg:#0B0A11; --surface:#15131D; --surface-2:#1C1A28; --surface-3:#242233;
-  --text:#F1EFF8; --text-2:#CCC9DA; --muted:#9A96AD; --dim:#6C6882;
-  --border:#262433; --border-2:#322F42; --hairline:#1E1C2A;
-  --accent:#9E8CFF; --accent-2:#B3A4FF; --accent-weak:rgba(158,140,255,.14); --on-accent:#15101F;
-  --ok:#37C998; --ok-weak:rgba(55,201,152,.13); --warn:#E2B24B; --warn-weak:rgba(226,178,75,.13);
-  --danger:#FB6F92; --danger-weak:rgba(251,111,146,.14); --sky:#52B6F5; --sky-weak:rgba(82,182,245,.13);
-  --shadow-sm:none; --shadow:none; --shadow-lg:0 16px 50px rgba(0,0,0,.5);
-  --ring:0 0 0 3px rgba(158,140,255,.22);
+  --bg:#0B0913; --surface:#151220; --surface-2:#1C1829; --surface-3:#241F34;
+  --text:#F2EFFA; --text-2:#CDC9DC; --muted:#9A95AE; --dim:#6B6783;
+  --border:#262134; --border-2:#332D44; --hairline:#1E1A2B;
+  --accent:#9E8CFF; --accent-2:#B3A4FF; --accent-weak:rgba(158,140,255,.15); --on-accent:#15101F;
+  --ok:#37C998; --ok-weak:rgba(55,201,152,.14); --warn:#E2B24B; --warn-weak:rgba(226,178,75,.14);
+  --danger:#FB6F92; --danger-weak:rgba(251,111,146,.15); --sky:#52B6F5; --sky-weak:rgba(82,182,245,.14);
+  --shadow-sm:none; --shadow:0 1px 0 rgba(255,255,255,.03),0 14px 36px rgba(0,0,0,.5); --shadow-lg:0 22px 60px rgba(0,0,0,.6);
+  --ring:0 0 0 3px rgba(158,140,255,.24);
 }
 
 /* tokens shared by both themes */
@@ -42,7 +45,7 @@
 html,body,#root{height:100%}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
   font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
-  font-feature-settings:"liga" 1,"calt" 1}
+  text-rendering:optimizeLegibility;font-feature-settings:"liga" 1,"calt" 1,"ss01" 1,"cv05" 1}
 a{color:var(--accent);text-decoration:none;font-weight:500}
 a:hover{color:var(--accent-2)}
 /* Display type is MEDIUM, not bold. The single biggest premium lever. */
@@ -144,8 +147,8 @@ p{margin:0}
 .grid.cols-4{grid-template-columns:repeat(4,1fr)}
 
 /* ─── Stat tiles: eyebrow + icon row, then a big medium metric ─────────── */
-.stat{display:flex;flex-direction:column;gap:18px;background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r-card);padding:24px 22px;box-shadow:var(--shadow-sm);text-align:left;min-width:0}
+.stat{display:flex;flex-direction:column;gap:15px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-card);padding:22px 22px;box-shadow:var(--shadow-sm);text-align:left;min-width:0}
 .stat-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .stat .label{font-family:var(--mono);font-size:.66rem;font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .stat-icon{width:30px;height:30px;border-radius:var(--r-sm);display:grid;place-items:center;flex-shrink:0;background:var(--surface-2);color:var(--muted)}
@@ -154,10 +157,13 @@ p{margin:0}
 .stat-icon.danger{color:var(--danger);background:var(--danger-weak)}
 .stat-icon.warn{color:var(--warn);background:var(--warn-weak)}
 .stat-icon.sky{color:var(--sky);background:var(--sky-weak)}
-.stat-body{display:flex;flex-direction:column;gap:3px}
-.stat .value{font-family:var(--disp);font-size:2rem;font-weight:600;letter-spacing:-.02em;line-height:1.05;color:var(--text);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.stat-body{display:flex;flex-direction:column;gap:5px;flex:1;justify-content:flex-end}
+.stat .value{font-family:var(--disp);font-size:2.15rem;font-weight:600;letter-spacing:-.022em;line-height:1;color:var(--text);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .stat .value small{font-size:.85rem;color:var(--dim);font-weight:500;margin-left:3px;letter-spacing:0}
-.stat .hint{font-size:.78rem;color:var(--muted)}
+.stat .hint{font-size:.78rem;color:var(--muted);line-height:1.3}
+.stat-bar{display:block;height:5px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+.stat-bar i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .4s cubic-bezier(.22,.61,.36,1)}
+.stat-bar i.ok{background:var(--ok)} .stat-bar i.danger{background:var(--danger)} .stat-bar i.warn{background:var(--warn)} .stat-bar i.sky{background:var(--sky)}
 .delta{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:.72rem;font-weight:500}
 .delta.up{color:var(--ok)} .delta.down{color:var(--danger)}
 button.stat,.stat.clickable,a.stat{cursor:pointer;transition:border-color .14s,box-shadow .14s,transform .14s;font:inherit}
