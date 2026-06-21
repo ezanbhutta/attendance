@@ -23,17 +23,23 @@ export function Field({ label, children }) {
   );
 }
 
-// Metric card with a colored icon tile. tone: ok | danger | warn | violet | sky.
-export function Stat({ icon: Icon, label, value, tone = 'violet', hint }) {
+// Metric tile: eyebrow label + small icon on top, then a large medium-weight
+// metric. tone: ok | danger | warn | violet | sky. Optional onClick → drill-in.
+export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, onClick }) {
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <div className="stat">
-      {Icon && <span className={`stat-icon ${tone}`}><Icon size={19} strokeWidth={2.2} /></span>}
-      <div className="stat-body">
-        <div className="label">{label}</div>
-        <div className="value">{value}</div>
-        {hint && <div className="hint">{hint}</div>}
+    <Tag className={`stat${onClick ? ' clickable' : ''}`} onClick={onClick}>
+      <div className="stat-top">
+        <span className="label">{label}</span>
+        {Icon && <span className={`stat-icon ${tone}`}><Icon size={16} strokeWidth={2} /></span>}
       </div>
-    </div>
+      <div className="stat-body">
+        <div className="value">{value}</div>
+        {(delta || hint) && (
+          <div className="hint">{delta && <span className={`delta ${delta.dir}`}>{delta.text}</span>} {hint}</div>
+        )}
+      </div>
+    </Tag>
   );
 }
 
