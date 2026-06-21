@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Search, Plus } from 'lucide-react';
 import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { Card, Field, Table, ConfirmButton, ErrorBanner } from '../components/ui.jsx';
@@ -89,7 +90,10 @@ export default function Employees() {
 
       <Card title="All employees">
         <div className="toolbar">
-          <input className="search" placeholder="Search name or PIN…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <span className="search-wrap">
+            <Search size={16} className="search-ico" />
+            <input className="search" placeholder="Search name or PIN…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </span>
           <span className="count-pill">{rows.length} {rows.length === 1 ? 'person' : 'people'}</span>
         </div>
         <Table
@@ -153,7 +157,7 @@ export default function Employees() {
               {shiftOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </Field>
-          <button className="btn primary">Add</button>
+          <button className="btn primary"><Plus size={15} /> Add</button>
         </form>
       </Card>
     </>

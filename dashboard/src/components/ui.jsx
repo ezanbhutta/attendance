@@ -23,6 +23,20 @@ export function Field({ label, children }) {
   );
 }
 
+// Metric card with a colored icon tile. tone: ok | danger | warn | violet | sky.
+export function Stat({ icon: Icon, label, value, tone = 'violet', hint }) {
+  return (
+    <div className="stat">
+      {Icon && <span className={`stat-icon ${tone}`}><Icon size={19} strokeWidth={2.2} /></span>}
+      <div className="stat-body">
+        <div className="label">{label}</div>
+        <div className="value">{value}</div>
+        {hint && <div className="hint">{hint}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function Spinner() {
   return <div className="center"><div className="spinner" role="status" aria-label="Loading" /></div>;
 }
@@ -35,7 +49,7 @@ export function ErrorBanner({ error }) {
 
 export function Badge({ value, kind }) {
   if (value == null || value === '') return <span className="muted">—</span>;
-  return <span className={`badge ${kind ?? value}`}>{value}</span>;
+  return <span className={`badge ${kind ?? value}`}><span className="dot" aria-hidden />{value}</span>;
 }
 
 // Generic table. columns: [{ key, label, num?, render?(row), get?(row) }]

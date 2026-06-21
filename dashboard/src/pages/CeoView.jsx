@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { todayISO, daysAgoISO, fmtDate } from '../lib/format';
-import { Card, Table, ErrorBanner } from '../components/ui.jsx';
+import { Users, UserCheck, UserX, TrendingUp, Clock, Plane, Hourglass } from 'lucide-react';
+import { Card, Table, ErrorBanner, Stat } from '../components/ui.jsx';
 import PrintHeader from '../components/PrintHeader.jsx';
 
 export default function CeoView() {
@@ -75,15 +76,15 @@ export default function CeoView() {
       <ErrorBanner error={todayRows.error || emps.error} />
 
       <div className="grid cols-4">
-        <div className="stat"><div className="label">Counted staff</div><div className="value">{counted.length}</div></div>
-        <div className="stat"><div className="label">Present today</div><div className="value" style={{ color: 'var(--ok)' }}>{present + incomplete}</div></div>
-        <div className="stat"><div className="label">Absent</div><div className="value" style={{ color: 'var(--danger)' }}>{absent}</div></div>
-        <div className="stat"><div className="label">Attendance rate</div><div className="value" style={{ color: 'var(--primary)' }}>{rate}%</div></div>
+        <Stat icon={Users} tone="violet" label="Counted staff" value={counted.length} />
+        <Stat icon={UserCheck} tone="ok" label="Present today" value={present + incomplete} />
+        <Stat icon={UserX} tone="danger" label="Absent" value={absent} />
+        <Stat icon={TrendingUp} tone="violet" label="Attendance rate" value={`${rate}%`} />
       </div>
       <div className="grid cols-3">
-        <div className="stat"><div className="label">Late arrivals</div><div className="value" style={{ color: 'var(--warn)' }}>{late}</div></div>
-        <div className="stat"><div className="label">On leave</div><div className="value">{leave}</div></div>
-        <div className="stat"><div className="label">Still in (incomplete)</div><div className="value">{incomplete}</div></div>
+        <Stat icon={Clock} tone="warn" label="Late arrivals" value={late} />
+        <Stat icon={Plane} tone="sky" label="On leave" value={leave} />
+        <Stat icon={Hourglass} tone="violet" label="Still in" value={incomplete} />
       </div>
 
       <Card title="By department — today">

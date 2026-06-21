@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { fmtTime, minutesToHM, fmtDate, todayISO, daysAgoISO } from '../lib/format';
 import { downloadCSV } from '../lib/csv';
-import { Card, Field, Table, Badge, ErrorBanner } from '../components/ui.jsx';
+import { Download, Printer, UserCheck, UserX, Clock, Plane, Timer, TrendingUp } from 'lucide-react';
+import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import PrintHeader from '../components/PrintHeader.jsx';
 
 const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'WeeklyOff'];
@@ -136,8 +137,8 @@ export default function Reports() {
           <p className="page-intro">Pick a view and filters, then export a clean PDF or CSV. Gate-only people are never included.</p>
         </div>
         <div className="inline-actions no-print">
-          <button className="btn" onClick={exportCSV} disabled={!data.length}>⬇ CSV</button>
-          <button className="btn primary" onClick={() => window.print()} disabled={!data.length}>🖶 PDF</button>
+          <button className="btn" onClick={exportCSV} disabled={!data.length}><Download size={15} /> CSV</button>
+          <button className="btn primary" onClick={() => window.print()} disabled={!data.length}><Printer size={15} /> PDF</button>
         </div>
       </div>
 
@@ -181,12 +182,12 @@ export default function Reports() {
       </Card>
 
       <div className="report-summary">
-        <div className="stat"><div className="label">Present</div><div className="value">{totals.present}</div></div>
-        <div className="stat"><div className="label">Absent</div><div className="value">{totals.absent}</div></div>
-        <div className="stat"><div className="label">Late</div><div className="value">{totals.late}</div></div>
-        <div className="stat"><div className="label">On leave</div><div className="value">{totals.leave}</div></div>
-        <div className="stat"><div className="label">Worked</div><div className="value">{minutesToHM(totals.worked)}</div></div>
-        <div className="stat"><div className="label">Overtime</div><div className="value">{minutesToHM(totals.ot)}</div></div>
+        <Stat icon={UserCheck} tone="ok" label="Present" value={totals.present} />
+        <Stat icon={UserX} tone="danger" label="Absent" value={totals.absent} />
+        <Stat icon={Clock} tone="warn" label="Late" value={totals.late} />
+        <Stat icon={Plane} tone="sky" label="On leave" value={totals.leave} />
+        <Stat icon={Timer} tone="violet" label="Worked" value={minutesToHM(totals.worked)} />
+        <Stat icon={TrendingUp} tone="violet" label="Overtime" value={minutesToHM(totals.ot)} />
       </div>
 
       <ErrorBanner error={report.error} />

@@ -1,19 +1,17 @@
 import { useEffect } from 'react';
+import { UserCheck, Clock, Hourglass, UserX, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { todayISO, fmtDateTime, fmtTime } from '../lib/format';
-import { Card, Table, Badge, ErrorBanner } from '../components/ui.jsx';
+import { Card, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 
 export default function Overview() {
   const today = todayISO();
 
   const daily = useQuery(() =>
     supabase.from('v_report_daily').select('status,late_minutes').eq('work_date', today), [today]);
-
   const health = useQuery(() => supabase.from('v_device_health').select('*'), []);
-
-  const feed = useQuery(() =>
-    supabase.from('v_live_punches').select('*').limit(50), []);
+  const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(50), []);
 
   // Realtime: refetch the feed (and today's stats) whenever a punch lands.
   useEffect(() => {
@@ -38,20 +36,26 @@ export default function Overview() {
 
   return (
     <>
-      <div className="page-title"><h1>Overview</h1><span className="muted">{today}</span></div>
+      <div className="page-title">
+        <div>
+          <h1>Overview</h1>
+          <p className="page-intro">Live snapshot of today. The feed updates the moment someone scans.</p>
+        </div>
+        <span className="muted">{today}</span>
+      </div>
       <ErrorBanner error={daily.error || feed.error || health.error} />
 
       <div className="grid cols-4">
-        <div className="stat"><div className="label">Present today</div><div className="value">{stat.present}</div></div>
-        <div className="stat"><div className="label">Late</div><div className="value">{stat.late}</div></div>
-        <div className="stat"><div className="label">Incomplete</div><div className="value">{stat.incomplete}</div></div>
-        <div className="stat"><div className="label">Absent</div><div className="value">{stat.absent}</div></div>
+        <Stat icon={UserCheck} tone="ok" label="Present today" value={stat.present} />
+        <Stat icon={Clock} tone="warn" label="Late" value={stat.late} />
+        <Stat icon={Hourglass} tone="violet" label="Still in" value={stat.incomplete} />
+        <Stat icon={UserX} tone="danger" label="Absent" value={stat.absent} />
       </div>
 
-      <Card title="Device health" actions={<button className="btn sm" onClick={health.refetch}>Refresh</button>}>
+      <Card title="Device health" actions={<button className="btn sm" onClick={health.refetch}><RefreshCw size={14} /> Refresh</button>}>
         <Table
           loading={health.loading}
-          empty="No devices yet — seed the device row."
+          empty="No devices yet."
           rows={health.data}
           columns={[
             { key: 'name', label: 'Device', render: (r) => r.name || r.sn },
@@ -64,7 +68,7 @@ export default function Overview() {
         />
       </Card>
 
-      <Card title="Live punch feed" actions={<button className="btn sm" onClick={feed.refetch}>Refresh</button>}>
+      <Card title="Live punch feed" actions={<button className="btn sm" onClick={feed.refetch}><RefreshCw size={14} /> Refresh</button>}>
         <Table
           loading={feed.loading}
           empty="No punches captured yet."
@@ -72,7 +76,7 @@ export default function Overview() {
           columns={[
             { key: 'punch_time', label: 'Time', render: (r) => fmtTime(r.punch_time) },
             { key: 'employee', label: 'Employee', render: (r) => r.employee?.trim() || <span className="muted">Unknown (PIN {r.pin})</span> },
-            { key: 'emp_code', label: 'Code' },
+            { key: 'emp_code', label: 'PIN' },
             { key: 'method', label: 'Method', render: (r) => <Badge value={r.method} kind={r.method} /> },
           ]}
         />
