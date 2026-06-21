@@ -106,7 +106,7 @@ function SortArrow({ dir }) {
 // Generic table. columns: [{ key, label, num?, render?(row), get?(row), sort?(row), sortable? }]
 // Click a header to sort (asc → desc → off). Sorting is on by default for any
 // labelled column; pass sortable:false to opt a column out (e.g. an actions col).
-export function Table({ columns, rows, loading, empty = 'Nothing here yet.' }) {
+export function Table({ columns, rows, loading, empty = 'Nothing here yet.', onRowClick }) {
   const [sort, setSort] = useState(null); // { key, dir }
   if (loading) return <Spinner />;
   if (!rows || rows.length === 0) return <div className="empty">{empty}</div>;
@@ -153,7 +153,7 @@ export function Table({ columns, rows, loading, empty = 'Nothing here yet.' }) {
         </thead>
         <tbody>
           {data.map((r, i) => (
-            <tr key={r.id ?? i}>
+            <tr key={r.id ?? i} className={onRowClick ? 'row-click' : ''} onClick={onRowClick ? () => onRowClick(r) : undefined}>
               {columns.map((c) => (
                 <td key={c.key} className={c.num ? 'num' : ''}>
                   {c.render ? c.render(r) : (c.get ? c.get(r) : r[c.key]) ?? '—'}
