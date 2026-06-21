@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { mockClient } from './mock.js';
 
 // Config comes from one of two places:
 //  • Desktop app: injected at runtime by the Electron preload (entered in Settings).
@@ -17,6 +18,8 @@ if (!IS_CONFIGURED) {
 
 // Browser/renderer client: anon (publishable) key + the logged-in user's JWT =>
 // requests run as `authenticated`, gated by RLS. The service-role key never lives here.
-export const supabase = createClient(url || 'http://localhost', anon || 'public-anon-placeholder');
+export const supabase = import.meta.env.VITE_MOCK
+  ? mockClient
+  : createClient(url || 'http://localhost', anon || 'public-anon-placeholder');
 export const DEVICE_SN = rc.deviceSn || import.meta.env.VITE_DEVICE_SN || 'NYU7253801246';
 export const APP_TZ = rc.timezone || import.meta.env.VITE_APP_TZ || 'Asia/Karachi';
