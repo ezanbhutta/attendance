@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../lib/auth.jsx';
 import { IS_DESKTOP } from '../lib/supabase';
 import SyncButton from './SyncButton.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 import HMLogo from './HMLogo.jsx';
 
 const NAV = [
@@ -61,7 +62,7 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <strong className="topbar-title">Attendance OS</strong>
-          <div className="topbar-right">{IS_DESKTOP && <SyncButton />}</div>
+          <div className="topbar-right"><ThemeToggle />{IS_DESKTOP && <SyncButton />}</div>
         </header>
         <main className="content">
           <Outlet />
