@@ -3,31 +3,29 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { todayISO, daysAgoISO, fmtDate, fmtTime, minutesToHM } from '../lib/format';
 import { Users, UserCheck, UserX, TrendingUp, Clock, Plane, Hourglass } from 'lucide-react';
-import { Card, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
+import { Card, Field, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
 import { withAutoCheckout } from '../lib/attendance';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 import PrintHeader from '../components/PrintHeader.jsx';
 
 export default function CeoView() {
   const today = todayISO();
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [drill, setDrill] = useState(null);
-  const [from, setFrom] = useState(daysAgoISO(29));
+  const [from, setFrom] = useState(daysAgoISO(6));   // default: last 7 days
   const [to, setTo] = useState(today);
-  const [deptFilter, setDeptFilter] = useState('');
+  const [dept, setDept] = useState('');
+  const [shift, setShift] = useState('');
 
-  const emps = useQuery(() => supabase.from('employees').select('id,track_attendance,active,department:departments(name)'), []);
+  const emps = useQuery(() => supabase.from('employees').select('id,track_attendance,active,department:departments(name),shift:shifts(name)'), []);
   const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
-  const todayRows = useQuery(() => supabase.from('v_report_daily')
-    .select('employee_id,emp_code,first_name,last_name,department,status,late_minutes,first_in,last_out,scheduled_in,scheduled_out')
-    .eq('work_date', today), [today]);
-  const week = useQuery(() => supabase.from('v_report_daily').select('work_date,status').gte('work_date', daysAgoISO(6)).lte('work_date', today), [today]);
+  const shifts = useQuery(() => supabase.from('shifts').select('name').order('name'), []);
   const range = useQuery(() => supabase.from('v_report_daily')
-    .select('employee_id,emp_code,first_name,last_name,department,work_date,status,late_minutes,first_in,last_out,scheduled_out,worked_minutes,overtime_minutes')
+    .select('employee_id,emp_code,first_name,last_name,department,work_date,status,late_minutes,first_in,last_out,scheduled_in,scheduled_out,worked_minutes,overtime_minutes')
     .gte('work_date', from).lte('work_date', to), [from, to]);
 
-  // Re-evaluate each minute so absences and auto checkouts track the clock.
+  // Re-evaluate each minute so today's absences and auto checkouts track the clock.
   useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
   useEffect(() => { const t = setTimeout(() => setMounted(true), 80); return () => clearTimeout(t); }, []);
 
@@ -35,25 +33,37 @@ export default function CeoView() {
   const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
   const fullName = (r) => `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || `PIN ${r.emp_code}`;
 
-  const counted = (emps.data ?? []).filter((e) => e.track_attendance && e.active !== false);
-  const countedIds = new Set(counted.map((e) => e.id));
-  const rows = (todayRows.data ?? []).filter((r) => countedIds.has(r.employee_id)).map((r) => withAutoCheckout(r, now));
+  const oneDay = from === to;                  // single day -> tiles are people, drill-downs make sense
+  const isToday = oneDay && to === today;
 
-  const present = rows.filter((r) => r.status === 'Present');
+  // Counted staff, scoped by the department + shift filters.
+  const counted = useMemo(() => (emps.data ?? []).filter((e) =>
+    e.track_attendance && e.active !== false
+    && (!dept || (e.department?.name || '—') === dept)
+    && (!shift || (e.shift?.name || '') === shift)), [emps.data, dept, shift]);
+  const countedIds = useMemo(() => new Set(counted.map((e) => e.id)), [counted]);
+
+  // Every report row in range for those people, with auto-checkout applied.
+  const rows = useMemo(() => (range.data ?? [])
+    .filter((r) => countedIds.has(r.employee_id))
+    .map((r) => withAutoCheckout(r, Date.now())), [range.data, countedIds, tick]);
+
+  // Status buckets (person-days over the range; people when it is one day).
+  const present = rows.filter((r) => r.status === 'Present' || r.status === 'Incomplete');
   const incomplete = rows.filter((r) => r.status === 'Incomplete');
   const absent = rows.filter((r) => r.status === 'Absent' && started(r));
   const upcoming = rows.filter((r) => r.status === 'Absent' && !started(r));
   const late = rows.filter((r) => (r.late_minutes ?? 0) > 0);
   const leave = rows.filter((r) => r.status === 'Leave');
-  const inBuilding = [...present, ...incomplete];
-  const rate = counted.length ? Math.min(100, Math.round((inBuilding.length / counted.length) * 100)) : 0;
-  const share = (n) => (counted.length ? (n / counted.length) * 100 : 0);   // share of counted staff, for tile bars
+  const scheduled = present.length + absent.length;
+  const rate = scheduled ? Math.round((present.length / scheduled) * 100) : 0;
+  const share = (n) => (scheduled ? (n / Math.max(scheduled, 1)) * 100 : 0);
 
   const headByDept = useMemo(() => {
     const m = new Map();
     counted.forEach((e) => { const d = e.department?.name || '—'; m.set(d, (m.get(d) || 0) + 1); });
     return m;
-  }, [emps.data]);
+  }, [counted]);
 
   const byDept = useMemo(() => {
     const m = new Map();
@@ -70,25 +80,23 @@ export default function CeoView() {
       .sort((a, b) => a.department.localeCompare(b.department));
   }, [rows, headByDept]);
 
+  // Present vs absent per day across the chosen range.
   const trend = useMemo(() => {
     const m = new Map();
-    (week.data ?? []).forEach((r) => {
+    for (const r of rows) {
       if (!m.has(r.work_date)) m.set(r.work_date, { date: r.work_date, present: 0, absent: 0 });
       const x = m.get(r.work_date);
       if (r.status === 'Present' || r.status === 'Incomplete') x.present++;
-      else if (r.status === 'Absent') x.absent++;
-    });
+      else if (r.status === 'Absent' && started(r)) x.absent++;
+    }
     return [...m.values()].sort((a, b) => a.date.localeCompare(b.date));
-  }, [week.data]);
+  }, [rows]);
   const trendMax = Math.max(1, ...trend.map((t) => t.present + t.absent));
 
   // Per person performance across the chosen range.
   const perPerson = useMemo(() => {
     const m = new Map();
-    for (const r0 of (range.data ?? [])) {
-      if (!countedIds.has(r0.employee_id)) continue;
-      const r = withAutoCheckout(r0);
-      if (deptFilter && (r.department || '—') !== deptFilter) continue;
+    for (const r of rows) {
       const k = r.employee_id;
       if (!m.has(k)) m.set(k, { id: k, employee_id: k, name: fullName(r), emp_code: r.emp_code, department: r.department || '—', present: 0, absent: 0, late: 0, worked: 0, ot: 0 });
       const x = m.get(k);
@@ -102,12 +110,14 @@ export default function CeoView() {
       const sched = x.present + x.absent;
       return { ...x, attendance: sched ? Math.round((x.present / sched) * 100) : null, ontime: x.present ? Math.round(((x.present - x.late) / x.present) * 100) : null };
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [range.data, countedIds, deptFilter]);
+  }, [rows]);
 
-  const openPeople = (title, list, right) =>
-    setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, people: list, right });
+  const openPeople = (title, list, right) => {
+    if (!oneDay) return;   // person-day buckets only map to people on a single day
+    setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${fmtDate(to)}`, people: list, right });
+  };
   const openPerson = (p) => {
-    const days = (range.data ?? []).filter((r) => r.employee_id === p.employee_id).map((r) => withAutoCheckout(r))
+    const days = rows.filter((r) => r.employee_id === p.employee_id)
       .sort((a, b) => String(b.work_date).localeCompare(String(a.work_date)));
     setDrill({ title: p.name, sub: `${p.department} · ${fmtDate(from)} to ${fmtDate(to)}`, days });
   };
@@ -117,18 +127,40 @@ export default function CeoView() {
     return <span className="mini-bar"><span className="track"><i style={{ width: `${pct ?? 0}%`, background: color }} /></span><span className="pct">{pct == null ? '—' : `${pct}%`}</span></span>;
   };
 
+  const filterNote = [dept && `Dept: ${dept}`, shift && `Shift: ${shift}`].filter(Boolean).join(' · ');
+  const dayWord = isToday ? 'today' : oneDay ? 'that day' : 'in range';
+  const clickHint = oneDay ? 'Click a tile to see who.' : 'Totals over the selected range.';
+
   return (
     <>
-      <PrintHeader title="CEO Summary" subtitle={fmtDate(today)} />
+      <PrintHeader title="CEO Summary" subtitle={`${fmtDate(from)} to ${fmtDate(to)}${filterNote ? ` · ${filterNote}` : ''}`} />
       <div className="page-title">
         <div>
           <h1>CEO View</h1>
-          <p className="page-intro">The whole company at a glance.</p>
+          <p className="page-intro">The whole company at a glance. {clickHint}</p>
         </div>
         <button className="btn primary no-print" onClick={() => window.print()}>Export PDF</button>
       </div>
 
-      <ErrorBanner error={todayRows.error || emps.error} />
+      <Card className="no-print overflow-visible">
+        <div className="row">
+          <Field label="Date range"><DateRangePicker from={from} to={to} onApply={(f, t) => { setFrom(f); setTo(t); }} /></Field>
+          <Field label="Department">
+            <select value={dept} onChange={(e) => setDept(e.target.value)}>
+              <option value="">All departments</option>
+              {(depts.data ?? []).map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Shift">
+            <select value={shift} onChange={(e) => setShift(e.target.value)}>
+              <option value="">All shifts</option>
+              {(shifts.data ?? []).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+            </select>
+          </Field>
+        </div>
+      </Card>
+
+      <ErrorBanner error={range.error || emps.error} />
 
       <div className="grid overview-top">
         <div className="card rate-card">
@@ -146,9 +178,9 @@ export default function CeoView() {
           </svg>
           <div className="rate-meta">
             <span className="eyebrow">Attendance rate</span>
-            <div className="rate-big">{inBuilding.length}<small>of {counted.length} in</small></div>
+            <div className="rate-big">{present.length}<small>{isToday ? `of ${counted.length} in` : `of ${scheduled} scheduled`}</small></div>
             <div className="rate-legend">
-              <span><i className="d ok" />Present {inBuilding.length}</span>
+              <span><i className="d ok" />Present {present.length}</span>
               <span><i className="d warn" />Late {late.length}</span>
               <span><i className="d danger" />Absent {absent.length}</span>
             </div>
@@ -157,35 +189,35 @@ export default function CeoView() {
         <div className="stat-cluster">
         <Stat icon={Users} tone="violet" label="Counted staff" value={counted.length}
           hint={`${headByDept.size} department${headByDept.size === 1 ? '' : 's'}`}
-          help="Active staff whose attendance is tracked. Gate only and archived people are left out." />
-        <Stat icon={UserCheck} tone="ok" label="Present today" value={inBuilding.length} bar={share(inBuilding.length)}
-          hint={`${rate}% of staff`}
-          onClick={() => openPeople('Present today', inBuilding, (r) => `in ${fmtTime(r.first_in)}`)}
-          help="Scanned in today, either still here or already done." />
+          help="Active staff whose attendance is tracked, within the current filters. Gate only and archived people are left out." />
+        <Stat icon={UserCheck} tone="ok" label={isToday ? 'Present today' : 'Present'} value={present.length} bar={share(present.length)}
+          hint={isToday ? `${rate}% of staff` : `${rate}% attendance`}
+          onClick={() => openPeople('Present', present, (r) => `in ${fmtTime(r.first_in)}`)}
+          help="Days attended (present or still in). On a single day, this is the people in." />
         <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} bar={share(absent.length)}
-          hint={upcoming.length ? `${upcoming.length} not due yet` : 'shift started, no scan'}
+          hint={upcoming.length ? `${upcoming.length} not due yet` : `no scan, ${dayWord}`}
           onClick={() => openPeople('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
-          help="Scheduled, shift started, and no scan yet. Weekly off and approved leave are left out." />
+          help="Scheduled, shift started, and no scan. Weekly off and approved leave are left out." />
         <Stat icon={TrendingUp} tone={rate >= 90 ? 'ok' : 'violet'} label="Attendance rate" value={`${rate}%`} bar={rate}
-          hint={`${inBuilding.length} of ${counted.length} in`}
-          help="Present, whether still here or done, divided by counted staff." />
+          hint={`${present.length} of ${scheduled} days`}
+          help="Days attended divided by days scheduled, over the selected range and filters." />
         </div>
       </div>
       <div className="grid cols-3">
         <Stat icon={Clock} tone="warn" label="Late arrivals" value={late.length} bar={share(late.length)}
           hint="after shift start" onClick={() => openPeople('Late arrivals', late, (r) => `${r.late_minutes}m late`)}
-          help="Scanned in after their shift start plus grace." />
+          help="Scans after shift start plus grace." />
         <Stat icon={Plane} tone="sky" label="On leave" value={leave.length} bar={share(leave.length)}
-          hint="approved today" onClick={() => openPeople('On leave', leave)}
-          help="On approved leave today." />
+          hint={`approved ${dayWord}`} onClick={() => openPeople('On leave', leave)}
+          help="On approved leave." />
         <Stat icon={Hourglass} tone="violet" label="Still in" value={incomplete.length} bar={share(incomplete.length)}
           hint="not scanned out" onClick={() => openPeople('Still in', incomplete, (r) => `in ${fmtTime(r.first_in)}`)}
-          help="Scanned in but not out yet." />
+          help="Scanned in but not out yet (mostly today's open shifts)." />
       </div>
 
       <div className="grid cols-2">
-        <Card title="By department today" help="Headcount per department against who is present, absent, late, or on leave today.">
-          <Table loading={todayRows.loading} rows={byDept} empty="No attendance yet today."
+        <Card title="By department" help="Headcount per department against who was present, absent, late, or on leave over the selected range.">
+          <Table loading={range.loading} rows={byDept} empty="No attendance in this range."
             columns={[
               { key: 'department', label: 'Department' },
               { key: 'headcount', label: 'Staff', num: true },
@@ -196,7 +228,7 @@ export default function CeoView() {
             ]} />
         </Card>
 
-        <Card title="Last 7 days" help="Present against absent each day this week. The violet bar is present, the rose bar absent.">
+        <Card title="Attendance by day" help="Present against absent for each day in the range. The violet bar is present, the rose bar absent.">
           {trend.length === 0 ? <div className="empty">No data yet.</div> : (
             <div className="trend">
               {trend.map((t) => (
@@ -215,16 +247,7 @@ export default function CeoView() {
       </div>
 
       <Card title="Per person performance"
-        help="Each person's record over the chosen range. Attendance is days present out of days scheduled. On time is the share of attended days that were not late. Click a row to open their full record."
-        actions={
-          <div className="inline-actions">
-            <DateRangePicker from={from} to={to} onApply={(f, t) => { setFrom(f); setTo(t); }} />
-            <select className="compact" value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
-              <option value="">All departments</option>
-              {(depts.data ?? []).map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
-            </select>
-          </div>
-        }>
+        help="Each person's record over the selected range and filters. Attendance is days present out of days scheduled. On time is the share of attended days that were not late. Click a row to open their full record.">
         <Table loading={range.loading} rows={perPerson} onRowClick={openPerson}
           empty="No records in this range."
           columns={[
