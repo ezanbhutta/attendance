@@ -10,7 +10,7 @@ export default function Calendar() {
     supabase.from('leaves')
       .select('id,leave_type,start_date,end_date,status,employee:employees(emp_code,first_name)')
       .order('start_date', { ascending: false }), []);
-  const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name').order('emp_code'), []);
+  const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const [hol, setHol] = useState({ the_date: '', name: '' });
   const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved' });
   const [err, setErr] = useState(null);
@@ -48,7 +48,7 @@ export default function Calendar() {
           <Field label="Employee *">
             <select required value={lv.employee_id} onChange={(e) => setLv({ ...lv, employee_id: e.target.value })}>
               <option value="">—</option>
-              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {e.first_name}</option>)}
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {`${e.first_name} ${e.last_name ?? ''}`.trim()}</option>)}
             </select>
           </Field>
           <Field label="Type">

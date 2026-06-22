@@ -7,7 +7,7 @@ import { Card, Field, Table, ErrorBanner } from '../components/ui.jsx';
 
 export default function Corrections() {
   const { user } = useAuth();
-  const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name').order('emp_code'), []);
+  const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const logs = useQuery(() =>
     supabase.from('manual_logs')
       .select('id,punch_time,reason,created_by,created_at,employee:employees(emp_code,first_name)')
@@ -43,7 +43,7 @@ export default function Corrections() {
           <Field label="Employee *">
             <select required value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })}>
               <option value="">—</option>
-              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {e.first_name}</option>)}
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {`${e.first_name} ${e.last_name ?? ''}`.trim()}</option>)}
             </select>
           </Field>
           <Field label="Date &amp; time *"><input type="datetime-local" required value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} /></Field>
