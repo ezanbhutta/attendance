@@ -43,6 +43,22 @@ export default function Employees() {
     setNotice(`Sent ${name || `PIN ${r.emp_code}`} to the device. Their name${card_no ? ' and card' : ''} will be set or updated on the next sync, without touching their face or fingerprint.`);
   }
 
+  // Bulk: queue every active person (name, PIN, card) to the device at once.
+  async function pushAllToDevice() {
+    setErr(null); setNotice(null);
+    const targets = (emps.data ?? []).filter((r) => r.active !== false);
+    if (!targets.length) return;
+    const payload = targets.map((r) => ({
+      device_sn: DEVICE_SN,
+      pin: r.emp_code,
+      name: `${r.first_name} ${r.last_name ?? ''}`.trim(),
+      card_no: methodMap[r.id]?.card_no ?? null,
+    }));
+    const { error } = await supabase.from('device_user_pushes').insert(payload);
+    if (error) return setErr(error);
+    setNotice(`Queued ${targets.length} ${targets.length === 1 ? 'person' : 'people'} to the device. Their names and cards will be set on the next sync, without touching anyone's face or fingerprint.`);
+  }
+
   async function addEmp(e) {
     e.preventDefault(); setErr(null);
     const payload = { ...form, department_id: form.department_id || null, shift_id: form.shift_id || null };
@@ -103,7 +119,11 @@ export default function Employees() {
         </div>
       )}
 
-      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card. To device sends a person's name, PIN and card to the scanner; face and fingerprint are enrolled at the device.">
+      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card. To device sends a person's name, PIN and card to the scanner; face and fingerprint are enrolled at the device." actions={
+        <button className="btn sm" onClick={pushAllToDevice} title="Send every active person's name, PIN and card to the device">
+          <Upload size={14} /> Send all to device
+        </button>
+      }>
         <div className="toolbar">
           <span className="search-wrap">
             <Search size={16} className="search-ico" />
