@@ -165,7 +165,7 @@ const F = {
     { id: 1, punch_time: new Date(Date.now() - 1 * 60000).toISOString(),  employee: 'Salman Khan',  pin: '1042', emp_code: '1042', method: 'face' },
     { id: 2, punch_time: new Date(Date.now() - 7 * 60000).toISOString(),  employee: 'Ayesha Malik', pin: '1043', emp_code: '1043', method: 'face' },
     { id: 3, punch_time: new Date(Date.now() - 12 * 60000).toISOString(), employee: 'Bilal Ahmed',  pin: '1044', emp_code: '1044', method: 'fingerprint' },
-    { id: 4, punch_time: new Date(Date.now() - 21 * 60000).toISOString(), employee: 'Fatima Noor',  pin: '1045', emp_code: '1045', method: 'face' },
+    { id: 4, punch_time: new Date(Date.now() - 21 * 60000).toISOString(), employee: 'Fatima Noor',  pin: '1045', emp_code: '1045', method: 'card' },
     { id: 5, punch_time: new Date(Date.now() - 34 * 60000).toISOString(), employee: '',             pin: '21',   emp_code: '21',   method: 'fingerprint' },
     { id: 6, punch_time: new Date(Date.now() - 51 * 60000).toISOString(), employee: 'Usman Tariq',  pin: '1046', emp_code: '1046', method: 'face' },
   ],

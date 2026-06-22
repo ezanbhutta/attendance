@@ -528,7 +528,8 @@ create or replace view v_report_monthly with (security_invoker = true) as
 
 create or replace view v_live_punches with (security_invoker = true) as
   select rp.id, rp.punch_time, rp.device_sn, rp.pin, rp.verify_mode,
-         case rp.verify_mode when 15 then 'face' when 1 then 'fingerprint' else 'other' end as method,
+         case when rp.verify_mode = 15 then 'face' when rp.verify_mode = 1 then 'fingerprint'
+              when rp.verify_mode is null and rp.card_no is null then 'other' else 'card' end as method,
          dum.employee_id, e.emp_code,
          (e.first_name || ' ' || coalesce(e.last_name, '')) as employee
     from raw_punches rp
