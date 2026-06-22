@@ -14,6 +14,7 @@ const NAV = [
   ['/org', 'Departments'],
   ['/shifts', 'Shifts'],
   ['/reports', 'Reports'],
+  ['/statement', 'Statement'],
   ['/anomalies', 'Anomalies'],
   ['/corrections', 'Fix a punch'],
   ['/calendar', 'Leave & Holidays'],

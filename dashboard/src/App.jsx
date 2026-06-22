@@ -10,6 +10,7 @@ import Employees from './pages/Employees.jsx';
 import Org from './pages/Org.jsx';
 import Shifts from './pages/Shifts.jsx';
 import Reports from './pages/Reports.jsx';
+import Statement from './pages/Statement.jsx';
 import Anomalies from './pages/Anomalies.jsx';
 import Corrections from './pages/Corrections.jsx';
 import Calendar from './pages/Calendar.jsx';
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="org" element={<Org />} />
         <Route path="shifts" element={<Shifts />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="statement" element={<Statement />} />
         <Route path="anomalies" element={<Anomalies />} />
         <Route path="corrections" element={<Corrections />} />
         <Route path="calendar" element={<Calendar />} />
