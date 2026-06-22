@@ -43,7 +43,7 @@
   --r-card:10px; --r:8px; --r-sm:6px; --r-pill:9999px; --tap:40px;
   --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --disp:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  --serif:'Fraunces','Hoefler Text',Georgia,'Times New Roman',serif;
+  --serif:'Playfair Display','Hoefler Text',Georgia,'Times New Roman',serif;
   --mono:'JetBrains Mono',ui-monospace,'SF Mono',monospace;
 }
 
@@ -140,7 +140,7 @@ p{margin:0}
   background-image:linear-gradient(var(--hairline) 1px,transparent 1px),linear-gradient(90deg,var(--hairline) 1px,transparent 1px);
   background-size:44px 44px;-webkit-mask-image:radial-gradient(82% 125% at 34% -25%,#000,transparent 72%);mask-image:radial-gradient(82% 125% at 34% -25%,#000,transparent 72%)}
 .page-title>*{position:relative;z-index:1}
-.page-title h1{font-family:var(--serif);font-size:2.5rem;font-weight:500;letter-spacing:-.024em;line-height:1.02}
+.page-title h1{font-family:var(--serif);font-size:2.5rem;font-weight:500;letter-spacing:-.015em;line-height:1.04}
 .page-title p,.page-intro{color:var(--muted);font-size:.92rem;margin-top:9px;max-width:64ch;line-height:1.5}
 @media (max-width:1080px){.page-title{margin:-24px -18px 22px;padding:30px 18px 20px}.page-title h1{font-size:2rem}}
 .page-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -430,7 +430,7 @@ th.sorted{color:var(--text)}
   -webkit-mask-image:radial-gradient(90% 130% at 38% -25%,#000,transparent 70%);mask-image:radial-gradient(90% 130% at 38% -25%,#000,transparent 70%)}
 .hero-inner{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;max-width:1800px;margin:0 auto}
 .hero .eyebrow{font-size:.66rem;letter-spacing:.18em;color:var(--accent)}
-.hero-h{font-family:var(--serif);font-size:3.5rem;font-weight:500;letter-spacing:-.028em;line-height:1.0;margin-top:14px}
+.hero-h{font-family:var(--serif);font-size:3.4rem;font-weight:500;letter-spacing:-.018em;line-height:1.02;margin-top:14px}
 .hero-dot{color:var(--accent)}
 .hero-sub{color:var(--muted);font-size:1rem;margin-top:12px}
 @media (max-width:1080px){.hero{margin:-24px -18px 22px;padding:34px 18px 24px}.hero-h{font-size:2.3rem}}
