@@ -1050,3 +1050,12 @@ end $$;
 
 -- Re-run the last month so the past rows are corrected too ("before and after").
 select recompute_attendance_range((current_date - 31), current_date);
+
+
+-- ════════════════════════════════════════════════════════════════════════
+-- from 20260622190000_device_user_role_password.sql
+-- ════════════════════════════════════════════════════════════════════════
+alter table employees add column if not exists device_privilege smallint not null default 0;
+alter table employees add column if not exists device_password text;
+alter table device_user_pushes add column if not exists privilege smallint;
+alter table device_user_pushes add column if not exists password text;

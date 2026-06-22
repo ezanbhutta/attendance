@@ -249,17 +249,21 @@ function createApp({ config, store, buffer }) {
   app.requestUserSync = () => enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
   app.requestHistorySync = () => enqueueCommand(config.attlogSyncCommand || 'DATA QUERY ATTLOG');
 
-  // Enroll or update one person on the device: name, PIN and card only. For an
-  // existing PIN this overwrites the name (and the card when we have one), so a
-  // rename on the dashboard is pushed onto the device. We send ONLY the fields
-  // we manage: password, privilege, group, face and fingerprint are left out so
-  // they are never wiped. Biometrics must be captured at the device anyway.
+  // Enroll or update one person on the device: name, PIN, card, role and (when
+  // given) password. For an existing PIN this overwrites those fields, so a change
+  // on the dashboard is pushed onto the device. Role (Pri) is always sent so a
+  // demotion to Normal User takes effect; password (PWD) is sent only when set, so
+  // a blank never wipes the device password. Group, face and fingerprint are left
+  // out so they are never touched — biometrics are captured at the device anyway.
   // (spec §3.6, DATA UPDATE USERINFO; omitted fields keep their current value.)
-  app.pushUser = ({ pin, name, card }) => {
+  app.pushUser = ({ pin, name, card, privilege, password }) => {
     const clean = (s) => String(s == null ? '' : s).replace(/[\t\r\n]/g, ' ').trim();
     const fields = [`PIN=${clean(pin)}`, `Name=${clean(name)}`];
     const c = clean(card);
     if (c) fields.push(`Card=${c}`);
+    if (privilege != null && privilege !== '') fields.push(`Pri=${parseInt(privilege, 10) || 0}`);
+    const pw = clean(password);
+    if (pw) fields.push(`PWD=${pw}`);
     return enqueueCommand(`DATA UPDATE USERINFO ${fields.join('\t')}`);
   };
 

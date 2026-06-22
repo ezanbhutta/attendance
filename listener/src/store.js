@@ -56,12 +56,12 @@ function createStore(config) {
 
     const codes = users.map((u) => String(u.pin));
     const { data: existing } = await supabase.from('employees')
-      .select('id,emp_code,first_name,last_name').in('emp_code', codes);
+      .select('id,emp_code,first_name,last_name,device_privilege').in('emp_code', codes);
     const byCode = new Map((existing || []).map((e) => [e.emp_code, e]));
 
-    // Insert PINs we have never seen.
+    // Insert PINs we have never seen (carrying the device's role for new people).
     const toInsert = users.filter((u) => !byCode.has(String(u.pin)))
-      .map((u) => ({ emp_code: String(u.pin), ...splitName(u.name, u.pin) }));
+      .map((u) => ({ emp_code: String(u.pin), ...splitName(u.name, u.pin), device_privilege: u.privilege ?? 0 }));
     let added = 0;
     if (toInsert.length) {
       const { data: ins, error } = await supabase.from('employees').insert(toInsert).select('id,emp_code');
@@ -70,15 +70,22 @@ function createStore(config) {
       added = ins.length;
     }
 
-    // Scanner wins: update an existing person's name when the device sent a real
-    // name that differs. Skip the rows we just inserted, and skip blank names.
+    // Scanner wins: update an existing person's name and role when the device sent
+    // a real value that differs. Skip rows we just inserted, and skip blank names.
     let updated = 0;
     for (const u of users) {
       const ex = byCode.get(String(u.pin));
-      if (!ex || ex._new || !(u.name || '').trim()) continue;
-      const nm = splitName(u.name, u.pin);
-      if (nm.first_name !== ex.first_name || (nm.last_name ?? null) !== (ex.last_name ?? null)) {
-        const { error } = await supabase.from('employees').update(nm).eq('id', ex.id);
+      if (!ex || ex._new) continue;
+      const patch = {};
+      if ((u.name || '').trim()) {
+        const nm = splitName(u.name, u.pin);
+        if (nm.first_name !== ex.first_name || (nm.last_name ?? null) !== (ex.last_name ?? null)) {
+          patch.first_name = nm.first_name; patch.last_name = nm.last_name;
+        }
+      }
+      if (u.privilege != null && u.privilege !== ex.device_privilege) patch.device_privilege = u.privilege;
+      if (Object.keys(patch).length) {
+        const { error } = await supabase.from('employees').update(patch).eq('id', ex.id);
         if (!error) updated++;
       }
     }
@@ -163,7 +170,7 @@ function createStore(config) {
     try {
       const { data, error } = await supabase
         .from('device_user_pushes')
-        .select('id,pin,name,card_no')
+        .select('id,pin,name,card_no,privilege,password')
         .is('done_at', null)
         .eq('device_sn', deviceSn)
         .limit(50);
@@ -174,7 +181,7 @@ function createStore(config) {
       await supabase.from('device_user_pushes')
         .update({ picked_up_at: now, done_at: now })
         .in('id', ids);
-      return data.map((r) => ({ pin: r.pin, name: r.name, card: r.card_no }));
+      return data.map((r) => ({ pin: r.pin, name: r.name, card: r.card_no, privilege: r.privilege, password: r.password }));
     } catch (e) {
       log.warn('user-push poll skipped:', e.message);
       return [];

@@ -15,7 +15,7 @@ function friendlyDelete(error) {
 export default function Employees() {
   const emps = useQuery(() =>
     supabase.from('employees')
-      .select('id,emp_code,first_name,last_name,track_attendance,weekly_off,department_id,shift_id,active,department:departments(name),shift:shifts(name)')
+      .select('id,emp_code,first_name,last_name,track_attendance,weekly_off,department_id,shift_id,active,device_privilege,device_password,department:departments(name),shift:shifts(name)')
       .order('emp_code'), []);
   const depts = useQuery(() => supabase.from('departments').select('id,name').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
@@ -37,19 +37,19 @@ export default function Employees() {
   const [armed, setArmed] = useState(null);   // id of the person whose Delete is armed
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  // Send name, PIN and card to the device through the catcher. Face and
-  // fingerprint are enrolled at the device, so they are never sent.
+  // Send name, PIN, card, role and password to the device through the catcher.
+  // Face and fingerprint are enrolled at the device, so they are never sent.
   async function pushToDevice(r) {
     setErr(null); setNotice(null);
     const name = `${r.first_name} ${r.last_name ?? ''}`.trim();
     const card_no = methodMap[r.id]?.card_no ?? null;
     const { error } = await supabase.from('device_user_pushes')
-      .insert({ device_sn: DEVICE_SN, pin: r.emp_code, name, card_no });
+      .insert({ device_sn: DEVICE_SN, pin: r.emp_code, name, card_no, privilege: r.device_privilege ?? 0, password: r.device_password ?? null });
     if (error) return setErr(error);
-    setNotice(`Sent ${name || `PIN ${r.emp_code}`} to the device. Their name${card_no ? ' and card' : ''} will be set or updated on the next sync, without touching their face or fingerprint.`);
+    setNotice(`Sent ${name || `PIN ${r.emp_code}`} to the device. Their name, role${card_no ? ', card' : ''}${r.device_password ? ' and password' : ''} will be set on the next sync, without touching their face or fingerprint.`);
   }
 
-  // Bulk: queue every active person (name, PIN, card) to the device at once.
+  // Bulk: queue every active person (name, PIN, card, role, password) at once.
   async function pushAllToDevice() {
     setErr(null); setNotice(null);
     const targets = (emps.data ?? []).filter((r) => r.active !== false);
@@ -59,10 +59,12 @@ export default function Employees() {
       pin: r.emp_code,
       name: `${r.first_name} ${r.last_name ?? ''}`.trim(),
       card_no: methodMap[r.id]?.card_no ?? null,
+      privilege: r.device_privilege ?? 0,
+      password: r.device_password ?? null,
     }));
     const { error } = await supabase.from('device_user_pushes').insert(payload);
     if (error) return setErr(error);
-    setNotice(`Queued ${targets.length} ${targets.length === 1 ? 'person' : 'people'} to the device. Their names and cards will be set on the next sync, without touching anyone's face or fingerprint.`);
+    setNotice(`Queued ${targets.length} ${targets.length === 1 ? 'person' : 'people'} to the device. Their names, roles and cards will be set on the next sync, without touching anyone's face or fingerprint.`);
   }
 
   async function addEmp(e) {
@@ -125,8 +127,8 @@ export default function Employees() {
         </div>
       )}
 
-      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card. To device sends a person's name, PIN and card to the scanner; face and fingerprint are enrolled at the device." actions={
-        <button className="btn sm" onClick={pushAllToDevice} title="Send every active person's name, PIN and card to the device">
+      <Card title="All employees" help="Everyone the device knows. Counted means their attendance is tracked. Gate only means they can open the gate but do not count. Methods shows how they have scanned, by face, fingerprint or card. Role is the device user role: Normal User or Super Admin (who can open the device menu). Password is the optional number a person can type at the device. To device sends a person's name, PIN, card, role and password to the scanner; face and fingerprint are enrolled at the device." actions={
+        <button className="btn sm" onClick={pushAllToDevice} title="Send every active person's name, PIN, card, role and password to the device">
           <Upload size={14} /> Send all to device
         </button>
       }>
@@ -192,6 +194,20 @@ export default function Employees() {
                 <option value="0">Sunday</option>
               </select>
             ) },
+            { key: 'role', label: 'Role', sort: (r) => r.device_privilege ?? 0, render: (r) => (
+              <select className="compact" value={[0, 14].includes(r.device_privilege) ? r.device_privilege : 0}
+                      onChange={(e) => updateEmp(r.id, { device_privilege: parseInt(e.target.value, 10) })}>
+                <option value="0">Normal User</option>
+                <option value="14">Super Admin</option>
+              </select>
+            ) },
+            { key: 'pwd', label: 'Password', sortable: false, render: (r) => (
+              <input className="compact name-edit" type="password" autoComplete="new-password"
+                     style={{ minWidth: 92, maxWidth: 110 }}
+                     defaultValue={r.device_password ?? ''} placeholder="—"
+                     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                     onBlur={(e) => { const v = e.target.value; if (v !== (r.device_password ?? '')) updateEmp(r.id, { device_password: v || null }); }} />
+            ) },
             { key: 'act', label: '', sortable: false, render: (r) => {
               const del = (
                 <button className={`icon-btn sm danger${armed === r.id ? ' on' : ''}`}
@@ -208,7 +224,7 @@ export default function Employees() {
                 </span>
               ) : (
                 <span className="inline-actions">
-                  <button className="icon-btn sm" onClick={() => pushToDevice(r)} title="Send name, PIN and card to the device"><Upload size={14} /></button>
+                  <button className="icon-btn sm" onClick={() => pushToDevice(r)} title="Send name, PIN, card, role and password to the device"><Upload size={14} /></button>
                   <button className="icon-btn sm" onClick={() => updateEmp(r.id, { active: false })} title="Archive and stop counting until restored"><Archive size={14} /></button>
                   {del}
                 </span>

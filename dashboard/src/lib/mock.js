@@ -146,6 +146,7 @@ const employees = ROSTER.map((p) => ({
   track_attendance: p.track !== false, weekly_off: p.woff,
   department_id: p.dept === 'Creative' ? 1 : p.dept === 'Accounts' ? 2 : p.dept === 'Production' ? 3 : p.dept === 'Management' ? 4 : 5,
   shift_id: p.night ? 2 : 1, active: p.active !== false,
+  device_privilege: p.track === false ? 14 : 0, device_password: null,
   department: { name: p.dept }, shift: { name: p.night ? 'Night' : 'General' },
 }));
 
