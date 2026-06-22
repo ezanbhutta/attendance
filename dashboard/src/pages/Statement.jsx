@@ -54,8 +54,12 @@ export default function Statement() {
     if (first) setEmp(String(first.id));
   }, [emps.data, emp]);
 
+  // Use the month's REAL last day (June ends on the 30th, February on 28/29).
+  // A hardcoded "-31" produces an impossible date like 2026-06-31, which the
+  // database rejects as out of range — so query an actual valid boundary.
+  const [mY, mM] = month.split('-').map(Number);
   const monthStart = `${month}-01`;
-  const monthEnd = `${month}-31`;
+  const monthEnd = `${month}-${String(new Date(mY, mM, 0).getDate()).padStart(2, '0')}`;
   const report = useQuery(() =>
     supabase.from('v_report_daily').select('*')
       .eq('employee_id', emp || -1)
