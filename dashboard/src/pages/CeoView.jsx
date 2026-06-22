@@ -18,7 +18,7 @@ export default function CeoView() {
   const [dept, setDept] = useState('');
   const [shift, setShift] = useState('');
 
-  const emps = useQuery(() => supabase.from('employees').select('id,track_attendance,active,department:departments(name),shift:shifts(name)'), []);
+  const emps = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name,track_attendance,active,department:departments(name),shift:shifts(name)'), []);
   const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('name').order('name'), []);
   const range = useQuery(() => supabase.from('v_report_daily')
@@ -112,10 +112,29 @@ export default function CeoView() {
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [rows]);
 
-  const openPeople = (title, list, right) => {
-    if (!oneDay) return;   // person-day buckets only map to people on a single day
-    setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${fmtDate(to)}`, people: list, right });
-  };
+  // Build drawer rows from a list of report rows. On a single day each entry is a
+  // person; over a range each is a person-day, so we show the date in the meta.
+  const peopleItems = (list, right) => [...list]
+    .sort((a, b) => fullName(a).localeCompare(fullName(b)) || String(a.work_date).localeCompare(String(b.work_date)))
+    .map((r, i) => ({
+      key: i,
+      name: fullName(r),
+      meta: oneDay ? (r.department || `PIN ${r.emp_code}`) : `${fmtDate(r.work_date)}${r.department ? ` · ${r.department}` : ''}`,
+      right: right?.(r),
+    }));
+  const openPeople = (title, list, right) =>
+    setDrill({ title, sub: `${list.length} ${oneDay ? (list.length === 1 ? 'person' : 'people') : 'day-entries'} · ${oneDay ? fmtDate(to) : `${fmtDate(from)} – ${fmtDate(to)}`}`, items: peopleItems(list, right) });
+  // Counted staff: the distinct people (not person-days), regardless of range.
+  const openCounted = () => setDrill({
+    title: 'Counted staff', sub: `${counted.length} ${counted.length === 1 ? 'person' : 'people'}${filterNote ? ` · ${filterNote}` : ''}`,
+    items: [...counted].sort((a, b) => fullName(a).localeCompare(fullName(b))).map((e, i) => ({ key: i, name: fullName(e), meta: e.department?.name || '—' })),
+  });
+  // Attendance rate: per-person attendance %, worst first, so the CEO sees who is pulling it down.
+  const openRate = () => setDrill({
+    title: 'Attendance rate', sub: `${rate}% · ${fmtDate(from)} – ${fmtDate(to)}`,
+    items: [...perPerson].sort((a, b) => (a.attendance ?? 101) - (b.attendance ?? 101))
+      .map((p, i) => ({ key: i, name: p.name, meta: p.department, right: p.attendance == null ? '—' : `${p.attendance}%` })),
+  });
   const openPerson = (p) => {
     const days = rows.filter((r) => r.employee_id === p.employee_id)
       .sort((a, b) => String(b.work_date).localeCompare(String(a.work_date)));
@@ -129,7 +148,7 @@ export default function CeoView() {
 
   const filterNote = [dept && `Dept: ${dept}`, shift && `Shift: ${shift}`].filter(Boolean).join(' · ');
   const dayWord = isToday ? 'today' : oneDay ? 'that day' : 'in range';
-  const clickHint = oneDay ? 'Click a tile to see who.' : 'Totals over the selected range.';
+  const clickHint = oneDay ? 'Click any tile to see who.' : 'Totals over the range — click any tile to drill in.';
 
   return (
     <>
@@ -163,7 +182,8 @@ export default function CeoView() {
       <ErrorBanner error={range.error || emps.error} />
 
       <div className="grid overview-top">
-        <div className="card rate-card">
+        <div className="card rate-card clickable" role="button" tabIndex={0} onClick={openRate}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRate(); } }}>
           <svg viewBox="0 0 120 120" className="donut" role="img" aria-label={`${rate}% attendance`}>
             <defs>
               <linearGradient id="donutGrad" x1="0" y1="0" x2="1" y2="1">
@@ -189,6 +209,7 @@ export default function CeoView() {
         <div className="stat-cluster">
         <Stat icon={Users} tone="violet" label="Counted staff" value={counted.length}
           hint={`${headByDept.size} department${headByDept.size === 1 ? '' : 's'}`}
+          onClick={openCounted}
           help="Active staff whose attendance is tracked, within the current filters. Gate only and archived people are left out." />
         <Stat icon={UserCheck} tone="ok" label={isToday ? 'Present today' : 'Present'} value={present.length} bar={share(present.length)}
           hint={isToday ? `${rate}% of staff` : `${rate}% attendance`}
@@ -200,7 +221,8 @@ export default function CeoView() {
           help="Scheduled, shift started, and no scan. Weekly off and approved leave are left out." />
         <Stat icon={TrendingUp} tone={rate >= 90 ? 'ok' : 'violet'} label="Attendance rate" value={`${rate}%`} bar={rate}
           hint={`${present.length} of ${scheduled} days`}
-          help="Days attended divided by days scheduled, over the selected range and filters." />
+          onClick={openRate}
+          help="Days attended divided by days scheduled, over the selected range and filters. Opens each person's rate, worst first." />
         </div>
       </div>
       <div className="grid cols-3">
@@ -264,9 +286,9 @@ export default function CeoView() {
 
       {drill && (
         <Drawer title={drill.title} sub={drill.sub} onClose={() => setDrill(null)}>
-          {drill.people && (drill.people.length
-            ? drill.people.map((r) => <PersonRow key={r.employee_id} name={fullName(r)} meta={r.department || `PIN ${r.emp_code}`} right={drill.right?.(r)} />)
-            : <div className="empty">Nobody here right now.</div>)}
+          {drill.items && (drill.items.length
+            ? drill.items.map((it) => <PersonRow key={it.key} name={it.name} meta={it.meta} right={it.right} />)
+            : <div className="empty">Nobody here.</div>)}
           {drill.days && (drill.days.length
             ? <div className="table-wrap"><table>
                 <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Status</th></tr></thead>

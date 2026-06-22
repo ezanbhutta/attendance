@@ -439,6 +439,8 @@ th.sorted{color:var(--text)}
 .overview-top{grid-template-columns:minmax(330px,1fr) 2fr;align-items:stretch}
 .stat-cluster{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .rate-card{display:flex;align-items:center;gap:26px;padding:26px 28px}
+.rate-card.clickable{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.rate-card.clickable:hover{border-color:var(--accent);box-shadow:var(--shadow-lg)}
 .donut{width:150px;height:150px;flex-shrink:0;overflow:visible}
 .donut-track{fill:none;stroke:var(--surface-3);stroke-width:9}
 .donut-arc{fill:none;stroke:url(#donutGrad);stroke-width:9;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 60px;
