@@ -5,13 +5,13 @@ import { fmtDate } from '../lib/format';
 import { Card, Field, Table, Badge, ConfirmButton, ErrorBanner } from '../components/ui.jsx';
 
 export default function Calendar() {
-  const holidays = useQuery(() => supabase.from('holidays').select('id,the_date,name,pay_multiplier').order('the_date', { ascending: false }), []);
+  const holidays = useQuery(() => supabase.from('holidays').select('id,the_date,name').order('the_date', { ascending: false }), []);
   const leaves = useQuery(() =>
     supabase.from('leaves')
       .select('id,leave_type,start_date,end_date,status,employee:employees(emp_code,first_name)')
       .order('start_date', { ascending: false }), []);
   const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name').order('emp_code'), []);
-  const [hol, setHol] = useState({ the_date: '', name: '', pay_multiplier: 1 });
+  const [hol, setHol] = useState({ the_date: '', name: '' });
   const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved' });
   const [err, setErr] = useState(null);
 
@@ -19,7 +19,7 @@ export default function Calendar() {
     e.preventDefault(); setErr(null);
     const { error } = await supabase.from('holidays').insert(hol);
     if (error) return setErr(error);
-    setHol({ the_date: '', name: '', pay_multiplier: 1 }); holidays.refetch();
+    setHol({ the_date: '', name: '' }); holidays.refetch();
   }
   async function addLeave(e) {
     e.preventDefault(); setErr(null);
@@ -77,11 +77,10 @@ export default function Calendar() {
         />
       </Card>
 
-      <Card title="Holidays" help="Days the office is closed and everyone is excused. Pay × marks special pay days, for example 2 for double pay.">
+      <Card title="Holidays" help="Days the office is closed and everyone is paid. Each holiday counts as a paid day off — the more holidays, the more paid days.">
         <form onSubmit={addHoliday} className="row" style={{ marginBottom: 12 }}>
           <Field label="Date *"><input type="date" required value={hol.the_date} onChange={(e) => setHol({ ...hol, the_date: e.target.value })} /></Field>
           <Field label="Name *"><input required value={hol.name} onChange={(e) => setHol({ ...hol, name: e.target.value })} placeholder="Independence Day" /></Field>
-          <Field label="Pay ×"><input type="number" step="0.5" min="0" value={hol.pay_multiplier} onChange={(e) => setHol({ ...hol, pay_multiplier: +e.target.value })} /></Field>
           <button className="btn primary">Add holiday</button>
         </form>
         <Table
@@ -89,7 +88,6 @@ export default function Calendar() {
           columns={[
             { key: 'the_date', label: 'Date', render: (r) => fmtDate(r.the_date) },
             { key: 'name', label: 'Name' },
-            { key: 'pay_multiplier', label: 'Pay ×', num: true },
             { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del('holidays', r.id, holidays.refetch)} /> },
           ]}
         />

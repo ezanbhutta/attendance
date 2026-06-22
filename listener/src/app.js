@@ -48,8 +48,10 @@ function createApp({ config, store, buffer }) {
   function touchDevice(info) {
     const now = Date.now();
     if (info || now - lastTouchAt >= 30000) {
-      lastTouchAt = now;
-      store.updateDeviceStatus(SN, info || null); // fire-and-forget; never throws
+      lastTouchAt = now;                          // throttle optimistically...
+      // ...but if the write fails, clear the throttle so the next contact retries
+      // immediately instead of staying suppressed (which could flip to "offline").
+      store.updateDeviceStatus(SN, info || null).then((ok) => { if (ok === false) lastTouchAt = 0; });
     }
   }
 

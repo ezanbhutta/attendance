@@ -23,6 +23,8 @@ extraResources:
       - '!**/.buffer/**'
       - '!**/test/**'
       - '!**/*.md'
+      - '!**/.env'
+      - '!**/.env.*'
 
 asar: true
 

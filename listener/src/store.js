@@ -32,8 +32,10 @@ function createStore(config) {
       if (info && info.ip) patch.ip = info.ip;
       const { error } = await supabase.from('devices').upsert(patch, { onConflict: 'sn' });
       if (error) throw new Error(error.message);
+      return true;
     } catch (e) {
       log.warn('device status update skipped:', e.message);
+      return false;
     }
   }
 

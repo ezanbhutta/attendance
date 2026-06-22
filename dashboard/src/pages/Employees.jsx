@@ -21,7 +21,13 @@ export default function Employees() {
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
   const methods = useQuery(() => supabase.from('v_employee_methods').select('*'), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*').order('punches', { ascending: false }), []);
-  const health = useQuery(() => supabase.from('v_device_health').select('last_user_sync,last_user_sync_count').eq('sn', DEVICE_SN), []);
+  // Show the most recent sync across devices rather than filtering on the
+  // dashboard's configured SN — a small SN mismatch was leaving this blank even
+  // though the catcher was syncing fine.
+  const health = useQuery(() => supabase.from('v_device_health')
+    .select('last_user_sync,last_user_sync_count')
+    .order('last_user_sync', { ascending: false, nullsFirst: false })
+    .limit(1), []);
 
   const [form, setForm] = useState({ emp_code: '', first_name: '', last_name: '', department_id: '', shift_id: '' });
   const [err, setErr] = useState(null);
