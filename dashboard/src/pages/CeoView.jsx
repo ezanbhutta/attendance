@@ -11,6 +11,7 @@ import PrintHeader from '../components/PrintHeader.jsx';
 export default function CeoView() {
   const today = todayISO();
   const [, setTick] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const [drill, setDrill] = useState(null);
   const [from, setFrom] = useState(daysAgoISO(29));
   const [to, setTo] = useState(today);
@@ -28,6 +29,7 @@ export default function CeoView() {
 
   // Re-evaluate each minute so absences and auto checkouts track the clock.
   useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 80); return () => clearTimeout(t); }, []);
 
   const now = Date.now();
   const started = (r) => !r.scheduled_in || new Date(r.scheduled_in).getTime() <= now;
@@ -128,7 +130,31 @@ export default function CeoView() {
 
       <ErrorBanner error={todayRows.error || emps.error} />
 
-      <div className="grid cols-4">
+      <div className="grid overview-top">
+        <div className="card rate-card">
+          <svg viewBox="0 0 120 120" className="donut" role="img" aria-label={`${rate}% attendance`}>
+            <defs>
+              <linearGradient id="donutGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="var(--accent)" />
+                <stop offset="1" stopColor="var(--accent-2)" />
+              </linearGradient>
+            </defs>
+            <circle className="donut-track" cx="60" cy="60" r="52" />
+            <circle className="donut-arc" cx="60" cy="60" r="52"
+              style={{ strokeDasharray: 326.726, strokeDashoffset: mounted ? 326.726 * (1 - rate / 100) : 326.726 }} />
+            <text className="donut-pct" x="60" y="60">{rate}%</text>
+          </svg>
+          <div className="rate-meta">
+            <span className="eyebrow">Attendance rate</span>
+            <div className="rate-big">{inBuilding.length}<small>of {counted.length} in</small></div>
+            <div className="rate-legend">
+              <span><i className="d ok" />Present {inBuilding.length}</span>
+              <span><i className="d warn" />Late {late.length}</span>
+              <span><i className="d danger" />Absent {absent.length}</span>
+            </div>
+          </div>
+        </div>
+        <div className="stat-cluster">
         <Stat icon={Users} tone="violet" label="Counted staff" value={counted.length}
           hint={`${headByDept.size} department${headByDept.size === 1 ? '' : 's'}`}
           help="Active staff whose attendance is tracked. Gate only and archived people are left out." />
@@ -143,6 +169,7 @@ export default function CeoView() {
         <Stat icon={TrendingUp} tone={rate >= 90 ? 'ok' : 'violet'} label="Attendance rate" value={`${rate}%`} bar={rate}
           hint={`${inBuilding.length} of ${counted.length} in`}
           help="Present, whether still here or done, divided by counted staff." />
+        </div>
       </div>
       <div className="grid cols-3">
         <Stat icon={Clock} tone="warn" label="Late arrivals" value={late.length} bar={share(late.length)}
