@@ -9,6 +9,7 @@ import { Card, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../com
 export default function Overview() {
   const today = todayISO();
   const [, setTick] = useState(0);     // forces a re-evaluate every minute
+  const [mounted, setMounted] = useState(false);   // drives the donut fill animation
   const [drill, setDrill] = useState(null);
   const [ignored, setIgnored] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('ignored-pins') || '[]')); } catch { return new Set(); }
@@ -39,6 +40,7 @@ export default function Overview() {
     const t = setInterval(() => setTick((x) => x + 1), 60000);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 80); return () => clearTimeout(t); }, []);
 
   const now = Date.now();
   // Gate only people (admin, CEO) and archived people must never appear in any
@@ -59,6 +61,9 @@ export default function Overview() {
   const inCount = present.length + stillIn.length;            // scanned in today (done or still in)
   const rate = counted ? Math.round((inCount / counted) * 100) : 0;
   const C = 326.726;                                          // 2·π·r for r=52, the donut circumference
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const init = (name, pin) => { const n = (name || '').trim(); return n ? n.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() : '#' + (pin ?? '?'); };
 
   const open = (title, list, right) =>
     setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, list, right });
@@ -77,11 +82,12 @@ export default function Overview() {
     <>
       <header className="hero">
         <span className="hero-wash" aria-hidden="true" />
+        <span className="hero-grid" aria-hidden="true" />
         <div className="hero-inner">
           <div className="hero-lede">
-            <span className="eyebrow">Overview · {today}</span>
-            <h1 className="hero-h">Today at a glance</h1>
-            <p className="hero-sub">Live attendance across {counted} tracked {counted === 1 ? 'person' : 'people'}.</p>
+            <span className="eyebrow">{today} · Overview</span>
+            <h1 className="hero-h">{greeting}<span className="hero-dot">.</span></h1>
+            <p className="hero-sub">{rate}% of your {counted} tracked {counted === 1 ? 'person is' : 'people are'} in today.</p>
           </div>
           <span className="live"><span className="p" />Live</span>
         </div>
@@ -111,8 +117,15 @@ export default function Overview() {
       <div className="grid overview-top">
         <div className="card rate-card">
           <svg viewBox="0 0 120 120" className="donut" role="img" aria-label={`${rate}% attendance`}>
+            <defs>
+              <linearGradient id="donutGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="var(--accent)" />
+                <stop offset="1" stopColor="var(--accent-2)" />
+              </linearGradient>
+            </defs>
             <circle className="donut-track" cx="60" cy="60" r="52" />
-            <circle className="donut-arc" cx="60" cy="60" r="52" style={{ strokeDasharray: C, strokeDashoffset: C * (1 - rate / 100) }} />
+            <circle className="donut-arc" cx="60" cy="60" r="52"
+              style={{ strokeDasharray: C, strokeDashoffset: mounted ? C * (1 - rate / 100) : C }} />
             <text className="donut-pct" x="60" y="60">{rate}%</text>
           </svg>
           <div className="rate-meta">
@@ -162,15 +175,23 @@ export default function Overview() {
 
       <Card title="Live punch feed" help="Every scan as it happens, newest first. Updates live as people use the device."
         actions={<button className="btn sm" onClick={feed.refetch}><RefreshCw size={14} /> Refresh</button>}>
-        <Table
-          loading={feed.loading} empty="No punches captured yet." rows={feed.data}
-          columns={[
-            { key: 'punch_time', label: 'Time', render: (r) => <span className="mono">{fmtTime(r.punch_time)}</span> },
-            { key: 'employee', label: 'Employee', render: (r) => r.employee?.trim() || <span className="muted">Unlinked (PIN {r.pin})</span> },
-            { key: 'emp_code', label: 'PIN' },
-            { key: 'method', label: 'Method', render: (r) => <Badge value={r.method} kind={r.method} /> },
-          ]}
-        />
+        {feed.loading ? <div className="empty">Loading…</div>
+          : !(feed.data ?? []).length ? <div className="empty">No punches captured yet.</div>
+          : (
+            <div className="feed">
+              {(feed.data ?? []).slice(0, 14).map((r) => (
+                <div className="feed-row" key={r.id}>
+                  <span className="feed-av">{init(r.employee, r.emp_code)}</span>
+                  <div className="feed-who">
+                    <div className="feed-nm">{r.employee?.trim() || <span className="muted">Unlinked · PIN {r.pin}</span>}</div>
+                    <div className="feed-meta">PIN {r.emp_code}</div>
+                  </div>
+                  <Badge value={r.method} kind={r.method} />
+                  <span className="feed-t mono">{fmtTime(r.punch_time)}</span>
+                </div>
+              ))}
+            </div>
+          )}
       </Card>
 
       {drill && (
