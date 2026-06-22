@@ -324,6 +324,12 @@ th.sorted{color:var(--text)}
 .drp-day.sel::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--accent);z-index:-1}
 .drp-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px;padding-top:11px;border-top:1px solid var(--hairline)}
 .drp-range{font-size:.82rem;color:var(--muted);font-family:var(--mono)}
+.drp-months{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.drp-month{padding:11px 6px;border:none;background:none;font:inherit;font-size:.85rem;font-weight:500;color:var(--text);cursor:pointer;border-radius:var(--r-sm);position:relative}
+.drp-month:hover:not(:disabled):not(.sel){background:var(--surface-2)}
+.drp-month.now:not(.sel){box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--accent)}
+.drp-month.sel{background:var(--accent);color:var(--on-accent);font-weight:600}
+.drp-month:disabled{color:var(--dim);opacity:.45;cursor:not-allowed}
 @media (max-width:560px){.drp-presets{display:none}.drp-cal{width:260px}}
 
 /* ─── Report summary / CEO trend ───────────────────────────────────────── */

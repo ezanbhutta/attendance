@@ -6,6 +6,7 @@ import { Printer, UserCheck, UserX, Clock, Plane, CalendarOff, Timer } from 'luc
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import { withAutoCheckout } from '../lib/attendance';
 import PrintHeader from '../components/PrintHeader.jsx';
+import MonthPicker from '../components/MonthPicker.jsx';
 
 // A clean, stateful month statement for ONE person: every day of the month with
 // its state (Present / Absent / Late / Leave / Holiday / Off), the in/out times,
@@ -141,7 +142,7 @@ export default function Statement() {
             </select>
           </Field>
           <Field label="Month">
-            <input type="month" value={month} max={thisMonth} onChange={(e) => setMonth(e.target.value || thisMonth)} />
+            <MonthPicker value={month} max={thisMonth} onChange={setMonth} />
           </Field>
         </div>
       </Card>
