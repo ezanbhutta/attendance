@@ -1,33 +1,53 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-// Month picker in the same popover style as DateRangePicker: a pill trigger that
-// opens a year header (‹ 2026 ›) over a 12-month grid. value / onChange use
-// 'YYYY-MM'; `max` (also 'YYYY-MM') greys out any month after it.
+// Month picker for the Statement: month + year dropdowns (the filters) over a
+// real day-to-day calendar grid (the same look as the date pickers elsewhere),
+// with the whole chosen month highlighted. value / onChange use 'YYYY-MM';
+// `max` (also 'YYYY-MM') caps the future. Changing a dropdown applies at once.
 export default function MonthPicker({ value, max, onChange }) {
   const [open, setOpen] = useState(false);
   const [vy, setVy] = useState(() => Number((value || '').slice(0, 4)) || new Date().getFullYear());
+  const [vm, setVm] = useState(() => Number((value || '').slice(5, 7)) || new Date().getMonth() + 1);
   const ref = useRef(null);
 
-  const selY = Number((value || '').slice(0, 4));
-  const selM = Number((value || '').slice(5, 7)); // 1-12
-  const now = new Date();
-  const maxY = max ? Number(max.slice(0, 4)) : null;
-  const maxM = max ? Number(max.slice(5, 7)) : null;
-
-  useEffect(() => { if (value) setVy(Number(value.slice(0, 4))); }, [value]);
+  useEffect(() => {
+    if (!value) return;
+    setVy(Number(value.slice(0, 4)));
+    setVm(Number(value.slice(5, 7)));
+  }, [value]);
   useEffect(() => {
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  const label = value ? `${LONG[selM - 1]} ${selY}` : 'Pick a month';
-  const monthDisabled = (m) => maxY != null && (vy > maxY || (vy === maxY && m > maxM));
-  const pick = (m) => { onChange(`${vy}-${String(m).padStart(2, '0')}`); setOpen(false); };
+  const now = new Date();
+  const maxY = max ? Number(max.slice(0, 4)) : null;
+  const maxM = max ? Number(max.slice(5, 7)) : null;
+  const baseYear = maxY ?? now.getFullYear();
+  const years = Array.from({ length: 7 }, (_, i) => baseYear - i);
+  const monthDisabled = (m) => maxY != null && vy === maxY && m > maxM;
+
+  // Apply a month (clamped to the max) and tell the parent immediately.
+  const commit = (y, m) => {
+    if (maxY != null && (y > maxY || (y === maxY && m > maxM))) { y = maxY; m = maxM; }
+    setVy(y); setVm(m);
+    onChange(`${y}-${String(m).padStart(2, '0')}`);
+  };
+
+  // The viewed month's day grid.
+  const startPad = new Date(vy, vm - 1, 1).getDay();
+  const daysInMonth = new Date(vy, vm, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const isToday = (d) => vy === now.getFullYear() && vm === now.getMonth() + 1 && d === now.getDate();
+
+  const label = value ? `${LONG[Number(value.slice(5, 7)) - 1]} ${value.slice(0, 4)}` : 'Pick a month';
 
   return (
     <div className="drp" ref={ref}>
@@ -36,21 +56,26 @@ export default function MonthPicker({ value, max, onChange }) {
       </button>
       {open && (
         <div className="drp-pop">
-          <div className="drp-cal" style={{ width: 244 }}>
-            <div className="drp-cal-head">
-              <button type="button" aria-label="Previous year" onClick={() => setVy((y) => y - 1)}><ChevronLeft size={16} /></button>
-              <span>{vy}</span>
-              <button type="button" aria-label="Next year" disabled={maxY != null && vy >= maxY} onClick={() => setVy((y) => y + 1)}><ChevronRight size={16} /></button>
+          <div className="drp-cal" style={{ width: 282 }}>
+            <div className="mp-head">
+              <select value={vm} onChange={(e) => commit(vy, Number(e.target.value))} aria-label="Month">
+                {LONG.map((mn, i) => <option key={mn} value={i + 1} disabled={monthDisabled(i + 1)}>{mn}</option>)}
+              </select>
+              <select value={vy} onChange={(e) => commit(Number(e.target.value), vm)} aria-label="Year">
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
             </div>
-            <div className="drp-months">
-              {MONTHS.map((mn, i) => {
-                const m = i + 1;
-                const cls = ['drp-month'];
-                if (vy === selY && m === selM) cls.push('sel');
-                else if (vy === now.getFullYear() && m === now.getMonth() + 1) cls.push('now');
-                return (
-                  <button type="button" key={mn} className={cls.join(' ')} disabled={monthDisabled(m)} onClick={() => pick(m)}>{mn}</button>
-                );
+            <div className="drp-grid">
+              {DOW.map((d) => <span key={d} className="drp-dow">{d}</span>)}
+              {cells.map((d, i) => {
+                if (d === null) return <span key={i} />;
+                const cls = ['drp-day', 'in', 'band'];
+                if (d === 1) cls.push('rs', 'mstart');
+                if (d === daysInMonth) cls.push('re', 'mend');
+                if (i % 7 === 0) cls.push('wstart');
+                if (i % 7 === 6) cls.push('wend');
+                if (isToday(d)) cls.push('today');
+                return <button type="button" key={i} className={cls.join(' ')} onClick={() => { commit(vy, vm); setOpen(false); }}>{d}</button>;
               })}
             </div>
           </div>
