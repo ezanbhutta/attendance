@@ -64,6 +64,12 @@ function main() {
       log.info(`web push requested (${pushes.length}); queuing device enroll`);
       for (const u of pushes) app.pushUser(u);
     }
+    // Employee deleted on the dashboard → remove them from the device.
+    const deletes = await store.claimUserDeletes(config.deviceSn);
+    if (deletes.length) {
+      log.info(`web delete requested (${deletes.length}); queuing device removal`);
+      for (const u of deletes) app.deleteUser(u);
+    }
   }, syncPollMs);
   syncTimer.unref();
 

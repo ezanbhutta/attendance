@@ -68,14 +68,36 @@ function createApp({ config, store, buffer }) {
     return cmdSeq;
   }
 
-  // Parse + import any user records in an uploaded body, and stamp the sync time.
+  // Reconcile a full Sync: collect the PINs the device uploads across a sync, and
+  // a few seconds after the last batch, archive anyone mapped to this device who
+  // was NOT in the upload (removed on the device). Debounced so a multi-part
+  // upload counts as one set; only ever acts on a non-empty set.
+  const reconcileOn = config.reconcileOnSync !== false;
+  const reconcileDelay = config.reconcileDelayMs || 8000;
+  let seenPins = null, reconcileTimer = null;
+  function noteSyncUsers(pins) {
+    if (!reconcileOn) return;
+    if (!seenPins) seenPins = new Set();
+    for (const p of pins) seenPins.add(String(p));
+    clearTimeout(reconcileTimer);
+    reconcileTimer = setTimeout(async () => {
+      const seen = [...seenPins]; seenPins = null;
+      const n = await store.archiveMissingUsers(SN, seen);
+      if (n) log.info(`sync reconcile: archived ${n} user(s) no longer on the device`);
+    }, reconcileDelay);
+    if (reconcileTimer.unref) reconcileTimer.unref();
+  }
+
+  // Parse + import any user records in an uploaded body, stamp the sync time, and
+  // feed the PINs into the reconcile set so removals on the device are mirrored.
   async function importUsers(body, source) {
     const users = parseUserinfo(body);
     if (!users.length) return false;
     try {
       const r = await store.importDeviceUsers(SN, users);
       await store.recordUserSync(SN, r.seen);
-      log.info(`${source}: ${r.seen} device user(s) received, ${r.added} new imported`);
+      log.info(`${source}: ${r.seen} device user(s) received, ${r.added} new, ${r.updated || 0} renamed`);
+      noteSyncUsers(users.map((u) => u.pin));
     } catch (e) {
       log.error(`user import (${source}) failed:`, e.message);
     }
@@ -237,6 +259,14 @@ function createApp({ config, store, buffer }) {
     const c = clean(card);
     if (c) fields.push(`Card=${c}`);
     return enqueueCommand(`DATA UPDATE USERINFO ${fields.join('\t')}`);
+  };
+
+  // Remove one person from the device by PIN (used when an employee is deleted on
+  // the dashboard). The device drops the user record and their templates.
+  // (spec §3.6, DATA DELETE USERINFO.)
+  app.deleteUser = ({ pin }) => {
+    const clean = (s) => String(s == null ? '' : s).replace(/[\t\r\n]/g, ' ').trim();
+    return enqueueCommand(`DATA DELETE USERINFO PIN=${clean(pin)}`);
   };
 
   // Express 5 catch-all (spec gotcha: '/{*splat}', not '*'). Ack anything else.

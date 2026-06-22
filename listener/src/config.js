@@ -40,6 +40,10 @@ function loadConfig() {
     // it safe to re-pull. Set AUTO_SYNC_HISTORY=false to disable.
     autoSyncHistory: optional('AUTO_SYNC_HISTORY', 'true') !== 'false',
     attlogSyncCommand: optional('ATTLOG_SYNC_COMMAND', 'DATA QUERY ATTLOG'),
+    // On a full Sync, archive anyone removed on the device (history is kept).
+    // Set RECONCILE_ON_SYNC=false to turn the archive-on-removal step off.
+    reconcileOnSync: optional('RECONCILE_ON_SYNC', 'true') !== 'false',
+    reconcileDelayMs: intOpt('RECONCILE_DELAY_MS', 8000),
   };
 }
 
