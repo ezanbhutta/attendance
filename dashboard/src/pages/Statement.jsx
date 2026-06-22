@@ -1,32 +1,34 @@
 import { useMemo, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
-import { fmtTime, minutesToHM, todayISO } from '../lib/format';
+import { fmtTime, fmtDate, minutesToHM, todayISO } from '../lib/format';
 import { Printer, UserCheck, UserX, Clock, Plane, CalendarOff, Timer } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import { withAutoCheckout } from '../lib/attendance';
+import DateRangePicker from '../components/DateRangePicker.jsx';
 import PrintHeader from '../components/PrintHeader.jsx';
-import MonthPicker from '../components/MonthPicker.jsx';
 
-// A clean, stateful month statement for ONE person: every day of the month with
-// its state (Present / Absent / Late / Leave / Holiday / Off), the in/out times,
-// what they worked and how late they were — and, when they tapped on a day they
-// were off, the scan is still shown with a note. No pay, no rates: just the facts
-// of attendance, ready to save as a PDF.
+// A clean, stateful attendance statement for ONE person over a chosen date range:
+// every day with its state (Present / Absent / Late / Leave / Holiday / Off), the
+// in/out times, what they worked and how late they were — and, when they tapped on
+// a day they were off, the scan is still shown with a note. No pay, no rates: just
+// the facts of attendance, ready to save as a PDF.
 
 const empName = (e) => (e ? `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() : '');
 const OFF = new Set(['WeeklyOff', 'Holiday', 'Leave']);
 
-// Every YYYY-MM-DD in a month string 'YYYY-MM'.
-function monthDays(month) {
-  const [y, m] = month.split('-').map(Number);
-  const last = new Date(y, m, 0).getDate();
-  return Array.from({ length: last }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
+// Every YYYY-MM-DD from `from` to `to` inclusive.
+const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+function daysInRange(from, to) {
+  const [fy, fm, fd] = from.split('-').map(Number);
+  const [ty, tm, td] = to.split('-').map(Number);
+  const out = [];
+  for (let d = new Date(fy, fm - 1, fd), end = new Date(ty, tm - 1, td); d <= end; d.setDate(d.getDate() + 1)) out.push(iso(d));
+  return out;
 }
-// Anchored at noon so the weekday / label never rolls across a timezone.
+// Anchored at noon so the label / weekday never rolls across a timezone.
+const dlabel = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 const weekday = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
-const dayNum = (d) => Number(d.slice(8, 10));
-const monthName = (m) => new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
 // One short, plain note per day: a tap on a day off, an auto checkout, a missing
 // scan out, or no record at all. Empty for an ordinary worked day.
@@ -39,8 +41,9 @@ function note(r) {
 }
 
 export default function Statement() {
-  const thisMonth = todayISO().slice(0, 7);
-  const [month, setMonth] = useState(thisMonth);
+  const today = todayISO();
+  const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);   // default: this month so far
+  const [to, setTo] = useState(today);
   const [emp, setEmp] = useState('');
 
   const emps = useQuery(() =>
@@ -55,26 +58,20 @@ export default function Statement() {
     if (first) setEmp(String(first.id));
   }, [emps.data, emp]);
 
-  // Use the month's REAL last day (June ends on the 30th, February on 28/29).
-  // A hardcoded "-31" produces an impossible date like 2026-06-31, which the
-  // database rejects as out of range — so query an actual valid boundary.
-  const [mY, mM] = month.split('-').map(Number);
-  const monthStart = `${month}-01`;
-  const monthEnd = `${month}-${String(new Date(mY, mM, 0).getDate()).padStart(2, '0')}`;
   const report = useQuery(() =>
     supabase.from('v_report_daily').select('*')
       .eq('employee_id', emp || -1)
-      .gte('work_date', monthStart).lte('work_date', monthEnd)
-      .order('work_date'), [emp, monthStart, monthEnd]);
+      .gte('work_date', from).lte('work_date', to)
+      .order('work_date'), [emp, from, to]);
 
   const person = (emps.data ?? []).find((e) => String(e.id) === String(emp));
-  const today = todayISO();
 
-  // Build a row for EVERY day up to today, joining the computed attendance.
+  // Build a row for EVERY day in range (up to today), joining the computed attendance.
   const rows = useMemo(() => {
     const byDate = {};
     (report.data ?? []).forEach((r) => { byDate[r.work_date] = withAutoCheckout(r); });
-    return monthDays(month).filter((d) => d <= today).map((d) => {
+    const end = to < today ? to : today;
+    return daysInRange(from, end).map((d) => {
       const r = byDate[d] || null;
       return {
         id: d, date: d,
@@ -86,7 +83,7 @@ export default function Statement() {
         auto_out: r?.auto_out ?? false,
       };
     });
-  }, [report.data, month, today]);
+  }, [report.data, from, to, today]);
 
   const sum = useMemo(() => rows.reduce((a, r) => {
     if (r.status === 'Present') a.present++;
@@ -102,7 +99,7 @@ export default function Statement() {
 
   const cols = [
     { key: 'date', label: 'Date', render: (r) => (
-      <span className={OFF.has(r.status) ? 'muted' : ''}><strong>{String(dayNum(r.date)).padStart(2, '0')}</strong> {weekday(r.date)}</span>
+      <span className={OFF.has(r.status) ? 'muted' : ''}><strong>{dlabel(r.date)}</strong> {weekday(r.date)}</span>
     ) },
     { key: 'status', label: 'Status', render: (r) => (r.status ? <Badge value={r.status} /> : <span className="muted">—</span>) },
     { key: 'first_in', label: 'In', render: (r) => fmtTime(r.first_in) },
@@ -112,19 +109,20 @@ export default function Statement() {
     { key: 'note', label: 'Note', sortable: false, render: (r) => (note(r) ? <span className="muted">{note(r)}</span> : '') },
   ];
 
+  const rangeLabel = `${fmtDate(from)} – ${fmtDate(to)}`;
   const personLine = person
     ? `PIN ${person.emp_code}${person.department?.name ? ` · ${person.department.name}` : ''}${person.shift?.name ? ` · ${person.shift.name}` : ''}`
-    : 'Pick a person to see their month.';
+    : 'Pick a person to see their record.';
 
   return (
     <>
       <PrintHeader title="Attendance statement"
-        subtitle={`${empName(person) || '—'} · ${monthName(month)}`} />
+        subtitle={`${empName(person) || '—'} · ${rangeLabel}`} />
 
       <div className="page-title">
         <div>
           <h1>Statement</h1>
-          <p className="page-intro">{empName(person) ? `${empName(person)} · ${monthName(month)}` : 'Monthly attendance, one person at a time.'}</p>
+          <p className="page-intro">{empName(person) ? `${empName(person)} · ${rangeLabel}` : 'One person, day by day, over any dates.'}</p>
         </div>
         <div className="inline-actions no-print">
           <button className="btn primary" onClick={() => window.print()} disabled={!rows.length}><Printer size={15} /> PDF</button>
@@ -141,8 +139,8 @@ export default function Statement() {
               ))}
             </select>
           </Field>
-          <Field label="Month">
-            <MonthPicker value={month} max={thisMonth} onChange={setMonth} />
+          <Field label="Dates">
+            <DateRangePicker from={from} to={to} onApply={(f, t) => { setFrom(f); setTo(t); }} />
           </Field>
         </div>
       </Card>
@@ -160,10 +158,10 @@ export default function Statement() {
       </div>
 
       <ErrorBanner error={report.error || emps.error} />
-      <Card title={`${empName(person) || 'Statement'} · ${monthName(month)}`}
-        help="Every day of the month with its state. A holiday, approved leave or weekly off keeps that label even if the person tapped in — the scan still shows, with a note. Save as a PDF with the PDF button.">
+      <Card title={`${empName(person) || 'Statement'} · ${rangeLabel}`}
+        help="Every day in the range with its state. A holiday, approved leave or weekly off keeps that label even if the person tapped in — the scan still shows, with a note. Save as a PDF with the PDF button.">
         <Table loading={report.loading} rows={rows} columns={cols}
-          empty={emp ? 'No days to show for this month yet.' : 'Pick a person above.'} />
+          empty={emp ? 'No days to show for this range yet.' : 'Pick a person above.'} />
       </Card>
     </>
   );
