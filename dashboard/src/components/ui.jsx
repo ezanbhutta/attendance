@@ -1,5 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+
+// Ease a number from its previous value to the new one (count-up animation).
+export function useCountUp(target, dur = 750) {
+  const [val, setVal] = useState(0);
+  const prev = useRef(0);
+  useEffect(() => {
+    const from = prev.current, to = target;
+    if (from === to) { setVal(to); return; }
+    let raf, t0;
+    const step = (t) => {
+      if (!t0) t0 = t;
+      const p = Math.min(1, (t - t0) / dur);
+      setVal(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step); else prev.current = to;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, dur]);
+  return val;
+}
+
+function sparkPoints(a) {
+  if (!a || a.length < 2) return '';
+  const mn = Math.min(...a), mx = Math.max(...a), r = (mx - mn) || 1;
+  return a.map((v, i) => `${(i / (a.length - 1) * 100).toFixed(1)},${(24 - ((v - mn) / r) * 20).toFixed(1)}`).join(' ');
+}
 
 export function Card({ title, actions, children, className = '', help }) {
   return (
@@ -59,8 +85,10 @@ export function InfoTip({ text, label = 'What is this?' }) {
 
 // Metric tile: eyebrow label + small icon on top, then a large medium-weight
 // metric. tone: ok | danger | warn | violet | sky. Optional onClick → drill-in.
-export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, onClick, help, bar }) {
+export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, onClick, help, bar, spark }) {
   const Tag = onClick ? 'button' : 'div';
+  const num = typeof value === 'number';
+  const shown = useCountUp(num ? value : 0);
   return (
     <Tag className={`stat${onClick ? ' clickable' : ''}`} onClick={onClick}>
       <div className="stat-top">
@@ -68,14 +96,18 @@ export function Stat({ icon: Icon, label, value, tone = 'violet', hint, delta, o
         {Icon && <span className={`stat-icon ${tone}`}><Icon size={16} strokeWidth={2} /></span>}
       </div>
       <div className="stat-body">
-        <div className="value">{value}</div>
+        <div className="value">{num ? shown : value}</div>
         {(delta || hint) && (
           <div className="hint">{delta && <span className={`delta ${delta.dir}`}>{delta.text}</span>}{hint}</div>
         )}
       </div>
-      {typeof bar === 'number' && (
+      {spark && spark.length > 1 ? (
+        <svg className="spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+          <polyline className={`spark-line ${tone}`} points={sparkPoints(spark)} />
+        </svg>
+      ) : typeof bar === 'number' ? (
         <span className="stat-bar"><i className={tone} style={{ width: `${Math.max(2, Math.min(100, bar))}%` }} /></span>
-      )}
+      ) : null}
     </Tag>
   );
 }

@@ -2,9 +2,36 @@ import { useEffect, useState } from 'react';
 import { UserCheck, Clock, Hourglass, UserX, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
-import { todayISO, fmtDateTime, fmtTime } from '../lib/format';
+import { todayISO, daysAgoISO, fmtDateTime, fmtTime } from '../lib/format';
 import { withAutoCheckout } from '../lib/attendance';
-import { Card, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
+import { Card, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow, useCountUp } from '../components/ui.jsx';
+
+// 7-day attendance-rate area chart (gradient fill + line + dots).
+function TrendArea({ series }) {
+  const W = 720, H = 168, P = 10, n = series.length;
+  if (n < 2) return <div className="empty">Not enough data yet.</div>;
+  const x = (i) => P + (i / (n - 1)) * (W - 2 * P);
+  const y = (v) => H - P - (Math.max(0, Math.min(100, v)) / 100) * (H - 2 * P);
+  const pts = series.map((s, i) => [x(i), y(s.value)]);
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const area = `${line} L ${x(n - 1).toFixed(1)} ${H - P} L ${x(0).toFixed(1)} ${H - P} Z`;
+  return (
+    <>
+      <svg className="trend-area" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Seven day attendance trend">
+        <defs>
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--accent)" stopOpacity="0.26" />
+            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#areaGrad)" />
+        <path d={line} className="trend-line" />
+        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3.5" className="trend-dot" />)}
+      </svg>
+      <div className="trend-x">{series.map((s, i) => <span key={i}>{s.label}</span>)}</div>
+    </>
+  );
+}
 
 export default function Overview() {
   const today = todayISO();
@@ -22,6 +49,8 @@ export default function Overview() {
   const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(60), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*'), []);
   const roster = useQuery(() => supabase.from('employees').select('id,active,track_attendance'), []);
+  const week = useQuery(() => supabase.from('v_report_daily').select('work_date,status,late_minutes')
+    .gte('work_date', daysAgoISO(6)).lte('work_date', today), [today]);
 
   // Realtime: refetch the moment a punch lands.
   useEffect(() => {
@@ -64,6 +93,24 @@ export default function Overview() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const init = (name, pin) => { const n = (name || '').trim(); return n ? n.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() : '#' + (pin ?? '?'); };
+  const rateShown = useCountUp(rate);
+  const inShown = useCountUp(inCount);
+  // Aggregate the last 7 days for the trend chart + per-tile sparklines.
+  const wk = {};
+  (week.data ?? []).forEach((r) => {
+    const d = r.work_date; (wk[d] = wk[d] || { present: 0, late: 0, still: 0, absent: 0, in: 0, sched: 0 });
+    if (r.status === 'Present') { wk[d].present++; wk[d].in++; wk[d].sched++; }
+    else if (r.status === 'Incomplete') { wk[d].still++; wk[d].in++; wk[d].sched++; }
+    else if (r.status === 'Absent') { wk[d].absent++; wk[d].sched++; }
+    if ((r.late_minutes ?? 0) > 0) wk[d].late++;
+  });
+  const days7 = Array.from({ length: 7 }, (_, k) => daysAgoISO(6 - k));
+  const wkLabel = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short' });
+  const trendSeries = days7.map((d) => ({ label: wkLabel(d), value: wk[d]?.sched ? Math.round(100 * wk[d].in / wk[d].sched) : 0 }));
+  const sPresent = days7.map((d) => wk[d]?.present ?? 0);
+  const sLate = days7.map((d) => wk[d]?.late ?? 0);
+  const sStill = days7.map((d) => wk[d]?.still ?? 0);
+  const sAbsent = days7.map((d) => wk[d]?.absent ?? 0);
 
   const open = (title, list, right) =>
     setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, list, right });
@@ -126,11 +173,11 @@ export default function Overview() {
             <circle className="donut-track" cx="60" cy="60" r="52" />
             <circle className="donut-arc" cx="60" cy="60" r="52"
               style={{ strokeDasharray: C, strokeDashoffset: mounted ? C * (1 - rate / 100) : C }} />
-            <text className="donut-pct" x="60" y="60">{rate}%</text>
+            <text className="donut-pct" x="60" y="60">{rateShown}%</text>
           </svg>
           <div className="rate-meta">
             <span className="eyebrow">Attendance today</span>
-            <div className="rate-big">{inCount}<small>of {counted} in</small></div>
+            <div className="rate-big">{inShown}<small>of {counted} in</small></div>
             <div className="rate-legend">
               <span><i className="d ok" />Present {present.length}</span>
               <span><i className="d warn" />Late {late.length}</span>
@@ -139,24 +186,28 @@ export default function Overview() {
           </div>
         </div>
         <div className="stat-cluster">
-        <Stat icon={UserCheck} tone="ok" label="Present" value={present.length} bar={share(present.length)}
+        <Stat icon={UserCheck} tone="ok" label="Present" value={present.length} spark={sPresent}
           hint={`of ${counted} counted`}
           onClick={() => open('Present today', present, (r) => `in ${fmtTime(r.first_in)}`)}
           help="Scanned in and out for a shift that has started today. Click to see who." />
-        <Stat icon={Clock} tone="warn" label="Late" value={late.length} bar={share(late.length)}
+        <Stat icon={Clock} tone="warn" label="Late" value={late.length} spark={sLate}
           hint="arrived after grace"
           onClick={() => open('Late arrivals', late, (r) => `${r.late_minutes}m late`)}
           help="Scanned in after their shift’s start time plus the grace period." />
-        <Stat icon={Hourglass} tone="violet" label="Still in" value={stillIn.length} bar={share(stillIn.length)}
+        <Stat icon={Hourglass} tone="violet" label="Still in" value={stillIn.length} spark={sStill}
           hint="not scanned out"
           onClick={() => open('Still in', stillIn, (r) => `in ${fmtTime(r.first_in)}`)}
           help="Scanned in but haven’t scanned out yet." />
-        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} bar={share(absent.length)}
+        <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} spark={sAbsent}
           hint={upcoming.length ? `${upcoming.length} not due yet` : 'shift started, no scan'}
           onClick={() => open('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
           help="Scheduled today, their shift has started, and still no scan. Weekly off and approved leave are not counted. Anyone whose shift has not started yet shows as not due yet." />
         </div>
       </div>
+
+      <Card title="Attendance · last 7 days" help="The share of expected staff who scanned in each day. The shaded area is the daily attendance rate.">
+        <TrendArea series={trendSeries} />
+      </Card>
 
       <Card title="Device health" help="Your scanner and the catcher service. “Online” means a heartbeat arrived in the last 2 minutes."
         actions={<button className="btn sm" onClick={health.refetch}><RefreshCw size={14} /> Refresh</button>}>
