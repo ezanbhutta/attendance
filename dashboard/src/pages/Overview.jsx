@@ -56,6 +56,9 @@ export default function Overview() {
   const upcoming = rows.filter((r) => r.status === 'Absent' && !started(r));  // shift not due yet
   const counted = (roster.data ?? []).filter((e) => e.track_attendance && e.active !== false).length;
   const share = (n) => (counted ? (n / counted) * 100 : 0);   // a group's share of counted staff, for the tile bar
+  const inCount = present.length + stillIn.length;            // scanned in today (done or still in)
+  const rate = counted ? Math.round((inCount / counted) * 100) : 0;
+  const C = 326.726;                                          // 2·π·r for r=52, the donut circumference
 
   const open = (title, list, right) =>
     setDrill({ title, sub: `${list.length} ${list.length === 1 ? 'person' : 'people'} · ${today}`, list, right });
@@ -72,16 +75,17 @@ export default function Overview() {
 
   return (
     <>
-      <div className="page-title">
-        <div>
-          <h1>Overview</h1>
-          <p className="page-intro">Today at a glance.</p>
-        </div>
-        <div className="page-tools">
-          <span className="date-chip">{today}</span>
+      <header className="hero">
+        <span className="hero-wash" aria-hidden="true" />
+        <div className="hero-inner">
+          <div className="hero-lede">
+            <span className="eyebrow">Overview · {today}</span>
+            <h1 className="hero-h">Today at a glance</h1>
+            <p className="hero-sub">Live attendance across {counted} tracked {counted === 1 ? 'person' : 'people'}.</p>
+          </div>
           <span className="live"><span className="p" />Live</span>
         </div>
-      </div>
+      </header>
       <ErrorBanner error={daily.error || feed.error || health.error} />
 
       {(health.data ?? []).some((d) => !d.online) && (
@@ -104,7 +108,24 @@ export default function Overview() {
         </div>
       )}
 
-      <div className="grid cols-4">
+      <div className="grid overview-top">
+        <div className="card rate-card">
+          <svg viewBox="0 0 120 120" className="donut" role="img" aria-label={`${rate}% attendance`}>
+            <circle className="donut-track" cx="60" cy="60" r="52" />
+            <circle className="donut-arc" cx="60" cy="60" r="52" style={{ strokeDasharray: C, strokeDashoffset: C * (1 - rate / 100) }} />
+            <text className="donut-pct" x="60" y="60">{rate}%</text>
+          </svg>
+          <div className="rate-meta">
+            <span className="eyebrow">Attendance today</span>
+            <div className="rate-big">{inCount}<small>of {counted} in</small></div>
+            <div className="rate-legend">
+              <span><i className="d ok" />Present {present.length}</span>
+              <span><i className="d warn" />Late {late.length}</span>
+              <span><i className="d danger" />Absent {absent.length}</span>
+            </div>
+          </div>
+        </div>
+        <div className="stat-cluster">
         <Stat icon={UserCheck} tone="ok" label="Present" value={present.length} bar={share(present.length)}
           hint={`of ${counted} counted`}
           onClick={() => open('Present today', present, (r) => `in ${fmtTime(r.first_in)}`)}
@@ -121,6 +142,7 @@ export default function Overview() {
           hint={upcoming.length ? `${upcoming.length} not due yet` : 'shift started, no scan'}
           onClick={() => open('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}
           help="Scheduled today, their shift has started, and still no scan. Weekly off and approved leave are not counted. Anyone whose shift has not started yet shows as not due yet." />
+        </div>
       </div>
 
       <Card title="Device health" help="Your scanner and the catcher service. “Online” means a heartbeat arrived in the last 2 minutes."

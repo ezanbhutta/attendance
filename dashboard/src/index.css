@@ -206,8 +206,9 @@ input.name-edit:focus{border-color:var(--accent);background:var(--surface)}
 .btn:hover{background:var(--surface-2);border-color:var(--border-2)}
 .btn:active{transform:scale(.98)}
 .btn.primary{background:var(--accent);color:var(--on-accent);border-color:transparent;
-  box-shadow:0 1px 2px rgba(20,19,26,.16),0 0 0 1px var(--accent) inset}
-.btn.primary:hover{background:var(--accent-2);border-color:transparent;box-shadow:0 2px 12px -1px color-mix(in srgb,var(--accent) 45%,transparent)}
+  box-shadow:0 1px 2px rgba(20,19,26,.14),0 8px 22px -8px color-mix(in srgb,var(--accent) 60%,transparent),0 0 0 1px var(--accent) inset}
+.btn.primary:hover{background:var(--accent-2);border-color:transparent;
+  box-shadow:0 2px 4px rgba(20,19,26,.16),0 12px 28px -8px color-mix(in srgb,var(--accent) 72%,transparent),0 0 0 1px var(--accent-2) inset}
 .btn.danger{color:var(--danger);border-color:var(--border-2)}
 .btn.danger:hover{background:var(--danger-weak);border-color:var(--danger)}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
@@ -405,6 +406,36 @@ th.sorted{color:var(--text)}
   .user-chip .user-email{display:none}
 }
 @media (min-width:901px){.topbar-title{display:none}}
+
+/* ─── Hero: full-bleed header band with a soft atmospheric wash ─────────── */
+.hero{position:relative;margin:-38px -48px 26px;padding:46px 48px 30px;overflow:hidden;border-bottom:1px solid var(--border)}
+.hero-wash{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(58% 135% at 12% -25%, color-mix(in srgb,var(--accent) 20%,transparent), transparent 62%),
+    radial-gradient(46% 120% at 88% -35%, color-mix(in srgb,var(--sky) 14%,transparent), transparent 56%)}
+.hero-inner{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;max-width:1800px;margin:0 auto}
+.hero .eyebrow{font-size:.66rem;letter-spacing:.16em;color:var(--accent)}
+.hero-h{font-family:var(--serif);font-size:2.7rem;font-weight:500;letter-spacing:-.022em;line-height:1.03;margin-top:11px}
+.hero-sub{color:var(--muted);font-size:.95rem;margin-top:9px}
+@media (max-width:1080px){.hero{margin:-24px -18px 22px;padding:30px 18px 22px}.hero-h{font-size:2.05rem}}
+
+/* ─── Overview hero metric: attendance-rate donut + the four tiles ─────── */
+.overview-top{grid-template-columns:minmax(320px,1fr) 2fr;align-items:stretch}
+.stat-cluster{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.rate-card{display:flex;align-items:center;gap:24px;padding:24px 26px}
+.donut{width:128px;height:128px;flex-shrink:0}
+.donut-track{fill:none;stroke:var(--surface-3);stroke-width:9}
+.donut-arc{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 60px;transition:stroke-dashoffset .8s cubic-bezier(.22,.61,.36,1)}
+.donut-pct{fill:var(--text);font-family:var(--serif);font-size:27px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.rate-meta{display:flex;flex-direction:column;gap:9px;min-width:0}
+.rate-big{font-family:var(--disp);font-size:2rem;font-weight:600;letter-spacing:-.03em;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+.rate-big small{font-size:.8rem;color:var(--dim);font-weight:500;margin-left:6px;letter-spacing:0}
+.rate-legend{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.rate-legend span{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)}
+.rate-legend .d{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.rate-legend .d.ok{background:var(--ok)} .rate-legend .d.warn{background:var(--warn)} .rate-legend .d.danger{background:var(--danger)}
+@media (max-width:1080px){.overview-top{grid-template-columns:1fr}}
+@media (max-width:560px){.stat-cluster{grid-template-columns:1fr}}
 
 /* Print only letterhead: hidden on screen, shown only when printing. */
 .print-header{display:none}
