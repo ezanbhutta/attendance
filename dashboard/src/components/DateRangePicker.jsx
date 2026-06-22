@@ -12,6 +12,7 @@ export default function DateRangePicker({ from, to, onApply }) {
   const [open, setOpen] = useState(false);
   const [start, setStart] = useState(from);
   const [end, setEnd] = useState(to);
+  const [hover, setHover] = useState(null);
   const [cursor, setCursor] = useState(() => { const d = parse(to); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const ref = useRef(null);
 
@@ -48,13 +49,17 @@ export default function DateRangePicker({ from, to, onApply }) {
   for (let i = 0; i < startPad; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), d));
 
-  const inRange = (d) => start && end && parse(start) <= d && d <= parse(end);
-  const isEdge = (d) => iso(d) === start || iso(d) === end;
+  // Effective range for styling. While picking the end, preview start → hovered day.
+  const selecting = start && !end;
+  const effEnd = end || (selecting ? hover : null);
+  const lo = start && effEnd ? (parse(start) <= parse(effEnd) ? start : effEnd) : start;
+  const hi = start && effEnd ? (parse(start) <= parse(effEnd) ? effEnd : start) : null;
+  const within = (d) => lo && hi && parse(lo) <= d && d <= parse(hi);
   const isToday = (d) => iso(d) === iso(today);
 
   return (
     <div className="drp" ref={ref}>
-      <button type="button" className="drp-trigger" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="drp-trigger" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <Calendar size={15} /> {fmt(from)} to {fmt(to)}
       </button>
       {open && (
@@ -68,17 +73,33 @@ export default function DateRangePicker({ from, to, onApply }) {
               <span>{cursor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</span>
               <button type="button" aria-label="Next month" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={16} /></button>
             </div>
-            <div className="drp-grid">
+            <div className="drp-grid" onMouseLeave={() => setHover(null)}>
               {DOW.map((d) => <span key={d} className="drp-dow">{d}</span>)}
-              {cells.map((d, i) => d === null ? <span key={i} /> : (
-                <button type="button" key={i}
-                  className={`drp-day${isEdge(d) ? ' sel' : ''}${inRange(d) && !isEdge(d) ? ' in' : ''}${isToday(d) ? ' today' : ''}`}
-                  onClick={() => clickDay(iso(d))}>{d.getDate()}</button>
-              ))}
+              {cells.map((d, i) => {
+                if (d === null) return <span key={i} />;
+                const s = iso(d);
+                const committed = s === start || s === end;   // solid endpoint
+                const banded = within(d);
+                const cls = ['drp-day'];
+                if (committed) cls.push('sel'); else if (banded) cls.push('in');
+                if (isToday(d)) cls.push('today');
+                if (banded) {                  // continuous band; round only where it truly ends
+                  cls.push('band');
+                  if (s === lo) cls.push('rs');
+                  if (s === hi) cls.push('re');
+                  if (i % 7 === 0) cls.push('wstart');
+                  if (i % 7 === 6) cls.push('wend');
+                  if (d.getDate() === 1) cls.push('mstart');
+                  if (d.getDate() === daysInMonth) cls.push('mend');
+                }
+                return <button type="button" key={i} className={cls.join(' ')}
+                  onMouseEnter={() => selecting && setHover(s)}
+                  onClick={() => clickDay(s)}>{d.getDate()}</button>;
+              })}
             </div>
             <div className="drp-foot">
               <span className="drp-range">{start ? fmt(start) : '—'} → {end ? fmt(end) : '…'}</span>
-              <button type="button" className="btn sm primary" onClick={apply}>Done</button>
+              <button type="button" className="btn sm primary" onClick={apply} disabled={!start}>Apply</button>
             </div>
           </div>
         </div>
