@@ -9,14 +9,14 @@ export default function Shifts() {
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
   const details = useQuery(() => supabase.from('shift_details').select('shift_id,day_index,timetable_id'), []);
   const [err, setErr] = useState(null);
-  const [tt, setTt] = useState({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false });
+  const [tt, setTt] = useState({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10 });
   const [shiftName, setShiftName] = useState('');
 
   async function addTt(e) {
     e.preventDefault(); setErr(null);
     const { error } = await supabase.from('timetables').insert({ ...tt, work_minutes: null });
     if (error) return setErr(error);
-    setTt({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10, next_day: false });
+    setTt({ name: '', check_in: '09:00', check_out: '18:00', late_grace_min: 10, early_leave_grace_min: 10 });
     tts.refetch();
   }
   async function updTt(id, patch) {
@@ -54,6 +54,10 @@ export default function Shifts() {
     details.refetch();
   }
 
+  // A timetable that starts after midnight and ends that morning is a night
+  // shift counted under the previous day (derived from the hours, no toggle).
+  const prevDay = (r) => r.check_out > r.check_in && r.check_in < '06:00';
+
   return (
     <>
       <div className="page-title">
@@ -64,19 +68,13 @@ export default function Shifts() {
       </div>
       <ErrorBanner error={err} />
 
-      <Card title="Timetables" help="A timetable defines one day’s hours: when work starts and ends, plus the minutes of grace before someone counts as late or as leaving early. For a night shift that runs after midnight but belongs to the night before, like 01:00 to 09:00 worked as the previous day’s shift, set Counts for to Previous day.">
+      <Card title="Timetables" help="A timetable defines one day’s hours: when work starts and ends, plus the minutes of grace before someone counts as late or as leaving early. A night shift that starts after midnight, like 01:00 to 09:00, is counted automatically under the previous day, no toggle needed.">
         <form onSubmit={addTt} className="row" style={{ marginBottom: 18 }}>
           <Field label="Name *"><input required value={tt.name} onChange={(e) => setTt({ ...tt, name: e.target.value })} placeholder="General 9 to 6" /></Field>
           <Field label="Check-in"><input type="time" value={tt.check_in} onChange={(e) => setTt({ ...tt, check_in: e.target.value })} /></Field>
           <Field label="Check-out"><input type="time" value={tt.check_out} onChange={(e) => setTt({ ...tt, check_out: e.target.value })} /></Field>
           <Field label="Late grace (min)"><input type="number" min="0" value={tt.late_grace_min} onChange={(e) => setTt({ ...tt, late_grace_min: +e.target.value })} /></Field>
           <Field label="Early-leave grace"><input type="number" min="0" value={tt.early_leave_grace_min} onChange={(e) => setTt({ ...tt, early_leave_grace_min: +e.target.value })} /></Field>
-          <Field label="Counts for">
-            <select value={tt.next_day ? '1' : '0'} onChange={(e) => setTt({ ...tt, next_day: e.target.value === '1' })}>
-              <option value="0">This day</option>
-              <option value="1">Previous day</option>
-            </select>
-          </Field>
           <button className="btn primary">Add</button>
         </form>
         <Table
@@ -87,11 +85,8 @@ export default function Shifts() {
             { key: 'check_out', label: 'Out', render: (r) => <InlineEdit type="time" value={r.check_out} onSave={(v) => updTt(r.id, { check_out: v })} /> },
             { key: 'late_grace_min', label: 'Late grace', num: true, render: (r) => <InlineEdit type="number" value={r.late_grace_min} onSave={(v) => updTt(r.id, { late_grace_min: v })} /> },
             { key: 'early_leave_grace_min', label: 'Early grace', num: true, render: (r) => <InlineEdit type="number" value={r.early_leave_grace_min} onSave={(v) => updTt(r.id, { early_leave_grace_min: v })} /> },
-            { key: 'next_day', label: 'Counts for', render: (r) => (
-              <select className="compact" value={r.next_day ? '1' : '0'} onChange={(e) => updTt(r.id, { next_day: e.target.value === '1' })}>
-                <option value="0">This day</option>
-                <option value="1">Previous day</option>
-              </select>
+            { key: 'counts', label: 'Counts for', sortable: false, render: (r) => (
+              <span className={prevDay(r) ? '' : 'muted'}>{prevDay(r) ? 'Previous day' : 'This day'}</span>
             ) },
             { key: 'act', label: '', sortable: false, render: (r) => <ConfirmButton onConfirm={async () => { const { error } = await supabase.from('timetables').delete().eq('id', r.id); if (error) setErr(error); else tts.refetch(); }} /> },
           ]}
