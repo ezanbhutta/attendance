@@ -73,9 +73,29 @@ function main() {
   }, syncPollMs);
   syncTimer.unref();
 
+  // Mark absences as shifts pass. compute_attendance_for only runs when someone
+  // punches (or on a manual recompute), so a person who never scans has NO row and
+  // is invisible to the dashboard — making the attendance rate read falsely high.
+  // Recompute yesterday + today for EVERYONE on a timer so no-shows get an Absent
+  // row once their shift has started. Yesterday is included for night shifts that
+  // count for the previous day. Cheap (a few dozen rows) and idempotent.
+  const tzOffset = config.deviceTzOffset || '+05:00';
+  const localDate = (back) => {
+    const m = /([+-])(\d{2}):(\d{2})/.exec(tzOffset);
+    const offMin = m ? (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10)) : 0;
+    return new Date(Date.now() + offMin * 60000 - back * 86400000).toISOString().slice(0, 10);
+  };
+  const recomputeEveryMs = Number(process.env.RECOMPUTE_EVERY_MS) || 5 * 60000;
+  const doRecompute = () => store.recomputeRange(localDate(1), localDate(0))
+    .then((ok) => { if (ok) log.info(`recomputed ${localDate(1)}..${localDate(0)} for absences`); });
+  setTimeout(doRecompute, 20000).unref();             // shortly after boot
+  const recomputeTimer = setInterval(doRecompute, recomputeEveryMs);
+  recomputeTimer.unref();
+
   function shutdown(sig) {
     log.info(`${sig} received; shutting down`);
     clearInterval(syncTimer);
+    clearInterval(recomputeTimer);
     buffer.stop();
     server.close(() => {
       log.info('listener stopped');

@@ -225,7 +225,7 @@ export default function CeoView() {
           </svg>
           <div className="rate-meta">
             <span className="eyebrow">Attendance rate</span>
-            <div className="rate-big">{present.length}<small>{isToday ? `of ${counted.length} in` : `of ${scheduled} scheduled`}</small></div>
+            <div className="rate-big">{present.length}<small>of {scheduled} due{counted.length > scheduled ? ` · ${counted.length - scheduled} not due/off` : ''}</small></div>
             <div className="rate-legend">
               <span><i className="d ok" />Present {present.length}</span>
               <span><i className="d warn" />Late {late.length}</span>
@@ -239,9 +239,9 @@ export default function CeoView() {
           onClick={openCounted}
           help="Active staff whose attendance is tracked, within the current filters. Gate only and archived people are left out." />
         <Stat icon={UserCheck} tone="ok" label={isToday ? 'Present today' : 'Present'} value={present.length} bar={share(present.length)}
-          hint={isToday ? `${rate}% of staff` : `${rate}% attendance`}
+          hint={`${rate}% of those due`}
           onClick={() => openPeople('Present', present, (r) => `in ${fmtTime(r.first_in)}`)}
-          help="Days attended (present or still in). On a single day, this is the people in." />
+          help="Days attended (present or still in), as a share of those whose shift was due — not of all staff. People whose shift has not started are excluded." />
         <Stat icon={UserX} tone="danger" label="Absent" value={absent.length} bar={share(absent.length)}
           hint={upcoming.length ? `${upcoming.length} not due yet` : `no scan, ${dayWord}`}
           onClick={() => openPeople('Absent', absent, (r) => `due ${fmtTime(r.scheduled_in)}`)}

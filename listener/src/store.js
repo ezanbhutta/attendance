@@ -213,8 +213,23 @@ function createStore(config) {
     }
   }
 
+  // Recompute EVERY active employee's attendance for a date range. This is what
+  // creates an Absent row for someone who never punched — without it they have no
+  // row at all and the dashboard cannot see them, so the attendance rate reads
+  // falsely high. Best-effort; never throws.
+  async function recomputeRange(fromDate, toDate) {
+    try {
+      const { error } = await supabase.rpc('recompute_attendance_range', { p_from: fromDate, p_to: toDate });
+      if (error) throw new Error(error.message);
+      return true;
+    } catch (e) {
+      log.warn('recompute skipped:', e.message);
+      return false;
+    }
+  }
+
   return { insertPunches, updateDeviceStatus, importDeviceUsers, recordUserSync,
-           archiveMissingUsers, claimSyncRequests, claimUserPushes, claimUserDeletes };
+           archiveMissingUsers, claimSyncRequests, claimUserPushes, claimUserDeletes, recomputeRange };
 }
 
 module.exports = { createStore };
