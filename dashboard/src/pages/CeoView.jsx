@@ -80,6 +80,33 @@ export default function CeoView() {
       .sort((a, b) => a.department.localeCompare(b.department));
   }, [rows, headByDept]);
 
+  // Same breakdown by shift, with a "Not due" column — people whose shift has not
+  // started yet, who are NOT counted absent. This is what makes the rate read high
+  // when, say, the night shift has not begun.
+  const shiftBy = useMemo(() => {
+    const m = {};
+    (emps.data ?? []).forEach((e) => { m[e.id] = e.shift?.name || 'No shift'; });
+    return m;
+  }, [emps.data]);
+  const headByShift = useMemo(() => {
+    const m = new Map();
+    counted.forEach((e) => { const s = e.shift?.name || 'No shift'; m.set(s, (m.get(s) || 0) + 1); });
+    return m;
+  }, [counted]);
+  const byShift = useMemo(() => {
+    const m = new Map();
+    for (const r of rows) {
+      const s = shiftBy[r.employee_id] || 'No shift';
+      if (!m.has(s)) m.set(s, { shift: s, present: 0, absent: 0, notdue: 0, late: 0 });
+      const x = m.get(s);
+      if (r.status === 'Present' || r.status === 'Incomplete') x.present++;
+      else if (r.status === 'Absent') { if (started(r)) x.absent++; else x.notdue++; }
+      if ((r.late_minutes ?? 0) > 0) x.late++;
+    }
+    return [...m.values()].map((x) => ({ ...x, headcount: headByShift.get(x.shift) || 0 }))
+      .sort((a, b) => a.shift.localeCompare(b.shift));
+  }, [rows, shiftBy, headByShift]);
+
   // Present vs absent per day across the chosen range.
   const trend = useMemo(() => {
     const m = new Map();
@@ -250,23 +277,35 @@ export default function CeoView() {
             ]} />
         </Card>
 
-        <Card title="Attendance by day" help="Present against absent for each day in the range. The violet bar is present, the rose bar absent.">
-          {trend.length === 0 ? <div className="empty">No data yet.</div> : (
-            <div className="trend">
-              {trend.map((t) => (
-                <div className="trend-row" key={t.date}>
-                  <span className="trend-day">{fmtDate(t.date)}</span>
-                  <span className="trend-bar">
-                    <span className="bar-present" style={{ width: `${(t.present / trendMax) * 100}%` }} />
-                    <span className="bar-absent" style={{ width: `${(t.absent / trendMax) * 100}%` }} />
-                  </span>
-                  <span className="trend-num">{t.present} in · {t.absent} absent</span>
-                </div>
-              ))}
-            </div>
-          )}
+        <Card title="By shift" help="Headcount per shift. 'Not due' is people whose shift has not started yet — they are not counted absent, so the rate reflects only those due. That is why the rate can read 100% while only part of the staff is in.">
+          <Table loading={range.loading} rows={byShift} empty="No attendance in this range."
+            columns={[
+              { key: 'shift', label: 'Shift' },
+              { key: 'headcount', label: 'Staff', num: true },
+              { key: 'present', label: 'Present', num: true },
+              { key: 'absent', label: 'Absent', num: true },
+              { key: 'notdue', label: 'Not due', num: true },
+              { key: 'late', label: 'Late', num: true },
+            ]} />
         </Card>
       </div>
+
+      <Card title="Attendance by day" help="Present against absent for each day in the range. The violet bar is present, the rose bar absent.">
+        {trend.length === 0 ? <div className="empty">No data yet.</div> : (
+          <div className="trend">
+            {trend.map((t) => (
+              <div className="trend-row" key={t.date}>
+                <span className="trend-day">{fmtDate(t.date)}</span>
+                <span className="trend-bar">
+                  <span className="bar-present" style={{ width: `${(t.present / trendMax) * 100}%` }} />
+                  <span className="bar-absent" style={{ width: `${(t.absent / trendMax) * 100}%` }} />
+                </span>
+                <span className="trend-num">{t.present} in · {t.absent} absent</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card title="Per person performance"
         help="Each person's record over the selected range and filters. Attendance is days present out of days scheduled. On time is the share of attended days that were not late. Click a row to open their full record.">
