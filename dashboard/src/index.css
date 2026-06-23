@@ -328,6 +328,10 @@ th.sorted{color:var(--text)}
 
 /* ─── Report summary / CEO trend ───────────────────────────────────────── */
 .report-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:22px}
+.keyfig{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 28px}
+.keyfig>div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px solid var(--hairline)}
+.keyfig .kf-label{color:var(--muted);font-size:.86rem}
+.keyfig .kf-value{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .trend{display:flex;flex-direction:column;gap:12px}
 .trend-row{display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:14px}
 .trend-day{font-size:.82rem;color:var(--muted);font-family:var(--mono)}
