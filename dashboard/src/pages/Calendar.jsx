@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { fmtDate } from '../lib/format';
-import { Card, Field, Table, Badge, ConfirmButton, ErrorBanner } from '../components/ui.jsx';
+import { Card, Field, Table, Badge, ConfirmButton, ErrorBanner, Drawer, PersonRow } from '../components/ui.jsx';
+
+const fullName = (e) => (e ? `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() : '');
 
 export default function Calendar() {
   const holidays = useQuery(() => supabase.from('holidays').select('id,the_date,name').order('the_date', { ascending: false }), []);
@@ -11,9 +13,11 @@ export default function Calendar() {
       .select('id,leave_type,start_date,end_date,status,employee:employees(emp_code,first_name)')
       .order('start_date', { ascending: false }), []);
   const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
+  const workers = useQuery(() => supabase.from('holiday_workers').select('the_date,employee_id,employee:employees(emp_code,first_name,last_name)'), []);
   const [hol, setHol] = useState({ the_date: '', name: '' });
   const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved' });
   const [err, setErr] = useState(null);
+  const [workHol, setWorkHol] = useState(null);   // holiday whose "who's working" drawer is open
 
   async function addHoliday(e) {
     e.preventDefault(); setErr(null);
@@ -33,6 +37,24 @@ export default function Calendar() {
     if (error) return setErr(error); refetch();
   };
 
+  // Holiday workers, grouped by date.
+  const workersByDate = {};
+  (workers.data ?? []).forEach((w) => { (workersByDate[w.the_date] ||= []).push(w); });
+  const workerList = (date) => workersByDate[date] ?? [];
+
+  async function addWorker(the_date, employee_id) {
+    setErr(null);
+    const { error } = await supabase.from('holiday_workers').insert({ the_date, employee_id: Number(employee_id) });
+    if (error) return setErr(error);
+    workers.refetch();
+  }
+  async function removeWorker(the_date, employee_id) {
+    setErr(null);
+    const { error } = await supabase.from('holiday_workers').delete().eq('the_date', the_date).eq('employee_id', employee_id);
+    if (error) return setErr(error);
+    workers.refetch();
+  }
+
   return (
     <>
       <div className="page-title">
@@ -48,7 +70,7 @@ export default function Calendar() {
           <Field label="Employee *">
             <select required value={lv.employee_id} onChange={(e) => setLv({ ...lv, employee_id: e.target.value })}>
               <option value="">—</option>
-              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {`${e.first_name} ${e.last_name ?? ''}`.trim()}</option>)}
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {fullName(e)}</option>)}
             </select>
           </Field>
           <Field label="Type">
@@ -77,7 +99,7 @@ export default function Calendar() {
         />
       </Card>
 
-      <Card title="Holidays" help="Days the office is closed and everyone is paid. Each holiday counts as a paid day off — the more holidays, the more paid days.">
+      <Card title="Holidays" help="Days the office is closed and everyone is paid. Each holiday counts as a paid day off. If someone is willing to come in, add them under Working — when they scan that day they earn a bonus day, shown in the reports and the PDF.">
         <form onSubmit={addHoliday} className="row" style={{ marginBottom: 12 }}>
           <Field label="Date *"><input type="date" required value={hol.the_date} onChange={(e) => setHol({ ...hol, the_date: e.target.value })} /></Field>
           <Field label="Name *"><input required value={hol.name} onChange={(e) => setHol({ ...hol, name: e.target.value })} placeholder="Independence Day" /></Field>
@@ -88,10 +110,41 @@ export default function Calendar() {
           columns={[
             { key: 'the_date', label: 'Date', render: (r) => fmtDate(r.the_date) },
             { key: 'name', label: 'Name' },
+            { key: 'workers', label: 'Working (bonus)', sortable: false, render: (r) => {
+              const n = workerList(r.the_date).length;
+              return <button className="btn sm" onClick={() => setWorkHol(r)}>{n ? `${n} working` : 'Add workers'}</button>;
+            } },
             { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del('holidays', r.id, holidays.refetch)} /> },
           ]}
         />
       </Card>
+
+      {workHol && (
+        <Drawer title={`Working on ${workHol.name}`}
+          sub={`${fmtDate(workHol.the_date)} · each person here earns a bonus day when they scan`}
+          onClose={() => setWorkHol(null)}>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label>Add someone willing to work</label>
+            <select value="" onChange={(e) => { if (e.target.value) addWorker(workHol.the_date, e.target.value); }}>
+              <option value="">— pick a person —</option>
+              {(employees.data ?? [])
+                .filter((e) => !workerList(workHol.the_date).some((w) => String(w.employee_id) === String(e.id)))
+                .map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {fullName(e)}</option>)}
+            </select>
+          </div>
+          {workerList(workHol.the_date).length === 0
+            ? <div className="empty">Nobody added yet. Pick the people who will come in for the bonus.</div>
+            : workerList(workHol.the_date).map((w) => (
+              <PersonRow key={w.employee_id}
+                name={fullName(w.employee) || `PIN ${w.employee?.emp_code}`}
+                meta={`PIN ${w.employee?.emp_code}`}
+                right={<button className="btn sm danger" onClick={() => removeWorker(workHol.the_date, w.employee_id)}>Remove</button>} />
+            ))}
+          <p className="muted" style={{ fontSize: '.85rem', marginTop: 16 }}>
+            On the holiday, anyone here who scans is marked <strong>HolidayWorked</strong> — counted as a bonus day in the reports and the PDF. The bonus pay is counted by you; the system just flags who earned it.
+          </p>
+        </Drawer>
+      )}
     </>
   );
 }

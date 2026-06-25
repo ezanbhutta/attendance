@@ -271,6 +271,7 @@ th.sorted{color:var(--text)}
 .badge.Absent,.badge.offline{background:var(--danger-weak);color:var(--danger);border-color:transparent}
 .badge.Incomplete,.badge.WeeklyOff{background:var(--warn-weak);color:var(--warn);border-color:transparent}
 .badge.Leave,.badge.Holiday{background:var(--accent-weak);color:var(--accent);border-color:transparent}
+.badge.HolidayWorked{background:var(--ok-weak);color:var(--ok);border-color:transparent;font-weight:600}
 .badge.face{background:var(--accent-weak);color:var(--accent);border-color:transparent}
 .badge.fingerprint{background:var(--sky-weak);color:var(--sky);border-color:transparent}
 .badge.card{background:var(--surface-2);color:var(--text-2);border-color:var(--border)}

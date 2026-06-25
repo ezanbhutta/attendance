@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { fmtTime, fmtDate, minutesToHM, todayISO } from '../lib/format';
-import { Printer, UserCheck, UserX, Clock, Plane, CalendarOff, Timer, TrendingUp } from 'lucide-react';
+import { Printer, UserCheck, UserX, Clock, Plane, CalendarOff, Timer, TrendingUp, Gift } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import { withAutoCheckout } from '../lib/attendance';
 import DateRangePicker from '../components/DateRangePicker.jsx';
@@ -93,6 +93,7 @@ export default function Statement() {
     else if (r.status === 'Leave') a.leave++;
     else if (r.status === 'WeeklyOff') a.off++;
     else if (r.status === 'Holiday') a.holiday++;
+    else if (r.status === 'HolidayWorked') a.bonus++;
     else if (!r.status) a.norecord++;
     if ((r.late_minutes ?? 0) > 0) { a.lateDays++; a.lateMin += r.late_minutes; }
     a.overtime += r.overtime_minutes ?? 0;
@@ -100,7 +101,7 @@ export default function Statement() {
     a.worked += r.worked_minutes ?? 0;
     if (r.auto_out) a.autoOut++;
     return a;
-  }, { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, norecord: 0,
+  }, { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0,
        lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0 }), [rows]);
 
   const presentTotal = s.present + s.incomplete;          // days attended
@@ -148,6 +149,7 @@ export default function Statement() {
     ['Incomplete (no scan out)', s.incomplete],
     ['On leave', s.leave],
     ['Holidays', s.holiday],
+    ['Holiday bonus days', s.bonus],
     ['Weekly offs', s.off],
     ['No record yet', s.norecord],
   ];
@@ -200,6 +202,7 @@ export default function Statement() {
           hint={s.holiday ? `${s.off} weekly · ${s.holiday} holiday` : 'weekly off'} />
         <Stat icon={Timer} tone="ok" label="Worked" value={minutesToHM(s.worked)} />
         <Stat icon={Timer} tone="violet" label="Overtime" value={minutesToHM(s.overtime)} />
+        {s.bonus > 0 && <Stat icon={Gift} tone="ok" label="Holiday bonus" value={s.bonus} hint="bonus day(s) earned" />}
       </div>
 
       <ErrorBanner error={report.error || emps.error} />
@@ -226,6 +229,7 @@ export default function Statement() {
           <li><strong>Overtime</strong> — time scanned out past the shift end.</li>
           <li><strong>Auto</strong> — the person never scanned out, so the day was closed at the shift end, four hours later. The raw log still shows no scan-out.</li>
           <li><strong>Leave / Holiday / Weekly off</strong> — not counted absent. Any scan on these days is still shown, with a note.</li>
+          <li><strong>HolidayWorked</strong> — a holiday volunteer who came in. It counts as a bonus day (one extra day, counted by you); their hours still add to the worked total.</li>
           <li><strong>face / finger / card</strong> next to a time shows how that scan was made. A card opens the gate but, on its own, never counts as attendance.</li>
         </ul>
       </Card>

@@ -3,13 +3,13 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { fmtTime, minutesToHM, fmtDate, todayISO, daysAgoISO } from '../lib/format';
 import { downloadCSV } from '../lib/csv';
-import { Download, Printer, UserCheck, UserX, Clock, Plane, Timer, TrendingUp } from 'lucide-react';
+import { Download, Printer, UserCheck, UserX, Clock, Plane, Timer, TrendingUp, Gift } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 import { withAutoCheckout } from '../lib/attendance';
 import PrintHeader from '../components/PrintHeader.jsx';
 
-const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'WeeklyOff'];
+const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'HolidayWorked', 'WeeklyOff'];
 const VIEWS = [
   ['detailed', 'Day by day'],
   ['employee', 'By employee'],
@@ -61,11 +61,12 @@ export default function Reports() {
     if (r.status === 'Present') a.present++;
     else if (r.status === 'Absent') a.absent++;
     else if (r.status === 'Leave') a.leave++;
+    else if (r.status === 'HolidayWorked') a.bonus++;
     if ((r.late_minutes ?? 0) > 0) a.late++;
     a.worked += r.worked_minutes ?? 0;
     a.ot += r.overtime_minutes ?? 0;
     return a;
-  }, { present: 0, absent: 0, leave: 0, late: 0, worked: 0, ot: 0 }), [rows]);
+  }, { present: 0, absent: 0, leave: 0, bonus: 0, late: 0, worked: 0, ot: 0 }), [rows]);
 
   const grouped = useMemo(() => {
     const keyFn = view === 'employee' ? (r) => r.employee_id
@@ -77,12 +78,13 @@ export default function Reports() {
     const g = new Map();
     for (const r of rows) {
       const k = keyFn(r);
-      if (!g.has(k)) g.set(k, { label: labelFn(r), code: r.emp_code, present: 0, absent: 0, leave: 0, incomplete: 0, late: 0, lateMin: 0, worked: 0, ot: 0 });
+      if (!g.has(k)) g.set(k, { label: labelFn(r), code: r.emp_code, present: 0, absent: 0, leave: 0, incomplete: 0, bonus: 0, late: 0, lateMin: 0, worked: 0, ot: 0 });
       const x = g.get(k);
       if (r.status === 'Present') x.present++;
       else if (r.status === 'Absent') x.absent++;
       else if (r.status === 'Leave') x.leave++;
       else if (r.status === 'Incomplete') x.incomplete++;
+      else if (r.status === 'HolidayWorked') x.bonus++;
       if ((r.late_minutes ?? 0) > 0) x.late++;
       x.lateMin += r.late_minutes ?? 0;
       x.worked += r.worked_minutes ?? 0;
@@ -110,6 +112,7 @@ export default function Reports() {
     { key: 'absent', label: 'Absent', num: true },
     { key: 'incomplete', label: 'Incomplete', num: true },
     { key: 'leave', label: 'Leave', num: true },
+    { key: 'bonus', label: 'H.bonus', num: true },
     { key: 'attendance', label: 'Attendance', num: true,
       render: (r) => { const s = r.present + r.incomplete + r.absent; return s ? `${Math.round(((r.present + r.incomplete) / s) * 100)}%` : '—'; },
       csv: (r) => { const s = r.present + r.incomplete + r.absent; return s ? Math.round(((r.present + r.incomplete) / s) * 100) : ''; } },
@@ -197,6 +200,7 @@ export default function Reports() {
         <Stat icon={UserX} tone="danger" label="Absent" value={totals.absent} />
         <Stat icon={Clock} tone="warn" label="Late" value={totals.late} />
         <Stat icon={Plane} tone="sky" label="On leave" value={totals.leave} />
+        {totals.bonus > 0 && <Stat icon={Gift} tone="ok" label="Holiday bonus" value={totals.bonus} hint="bonus day(s)" />}
         <Stat icon={Timer} tone="violet" label="Worked" value={minutesToHM(totals.worked)} />
         <Stat icon={TrendingUp} tone="violet" label="Overtime" value={minutesToHM(totals.ot)} />
       </div>
