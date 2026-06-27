@@ -49,7 +49,8 @@ const FIG = (s) => [
   ['Late days', s.lateDays], ['Total late', minutesToHM(s.lateMin)], ['Total worked', minutesToHM(s.worked)],
   ['Average per day', minutesToHM(s.avgWorked)], ['Total overtime', minutesToHM(s.overtime)], ['Breaks deducted', minutesToHM(s.breakMin)],
   ['Auto check-outs', s.autoOut], ['Incomplete (no scan out)', s.incomplete], ['On leave', s.leave],
-  ['Half days', s.half], ['Holidays', s.holiday], ['Holiday bonus days', s.bonus], ['Weekly offs', s.off],
+  ['Paid leave', s.paidLeave], ['Unpaid leave', s.unpaidLeave], ['Half days', s.half],
+  ['Holidays', s.holiday], ['Holiday bonus days', s.bonus], ['Weekly offs', s.off],
 ];
 
 const LEGEND = [
@@ -125,6 +126,15 @@ export default function Statement() {
     return parts.join(' · ');
   };
 
+  // A Leave day is paid unless its leave record is marked unpaid (checking the
+  // next day too, for a night shift whose Leave landed on the previous date).
+  const leavePaid = (e, date) => {
+    const within = (l, d) => d >= l.start_date && d <= (l.end_date || l.start_date);
+    const list = leavesByEmp[e.id] ?? [];
+    const l = list.find((x) => within(x, date)) || list.find((x) => within(x, nextDay(date)));
+    return l ? l.paid : true;
+  };
+
   // Build a person's day-by-day rows + summary.
   function buildPerson(e) {
     const byDate = {};
@@ -151,7 +161,7 @@ export default function Statement() {
       if (r.status === 'Present') a.present++;
       else if (r.status === 'Incomplete') a.incomplete++;
       else if (r.status === 'Absent') a.absent++;
-      else if (r.status === 'Leave') a.leave++;
+      else if (r.status === 'Leave') { a.leave++; if (leavePaid(e, r.date)) a.paidLeave++; else a.unpaidLeave++; }
       else if (r.status === 'WeeklyOff') a.off++;
       else if (r.status === 'Holiday') a.holiday++;
       else if (r.status === 'HolidayWorked') a.bonus++;
@@ -161,7 +171,7 @@ export default function Statement() {
       if (r.auto_out) a.autoOut++;
       if (r.half) a.half++;
       return a;
-    }, { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, half: 0 });
+    }, { present: 0, incomplete: 0, absent: 0, leave: 0, paidLeave: 0, unpaidLeave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, half: 0 });
     s.total = days.length;
     s.presentTotal = s.present + s.incomplete;
     s.scheduled = s.presentTotal + s.absent;
@@ -181,7 +191,7 @@ export default function Statement() {
 
   // Aggregate summary across everyone in scope (used for shift / department).
   const agg = useMemo(() => {
-    const a = { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, half: 0, total: 0 };
+    const a = { present: 0, incomplete: 0, absent: 0, leave: 0, paidLeave: 0, unpaidLeave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, half: 0, total: 0 };
     people.forEach(({ s }) => { for (const k in a) a[k] += s[k] || 0; });
     a.presentTotal = a.present + a.incomplete;
     a.scheduled = a.presentTotal + a.absent;

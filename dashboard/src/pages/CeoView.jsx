@@ -7,6 +7,10 @@ import { Card, Field, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from 
 import { withAutoCheckout } from '../lib/attendance';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const hdMins = (h) => Math.max(0, toMin(h.to_time) - toMin(h.from_time));   // absent window
+const nextDayOf = (d) => { const [y, m, da] = d.split('-').map(Number); const x = new Date(y, m - 1, da + 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+
 export default function CeoView() {
   const today = todayISO();
   const [tick, setTick] = useState(0);
@@ -23,6 +27,8 @@ export default function CeoView() {
   const range = useQuery(() => supabase.from('v_report_daily')
     .select('employee_id,emp_code,first_name,last_name,department,work_date,status,late_minutes,first_in,last_out,scheduled_in,scheduled_out,worked_minutes,overtime_minutes')
     .gte('work_date', from).lte('work_date', to), [from, to]);
+  const leaves = useQuery(() => supabase.from('leaves').select('employee_id,start_date,end_date,status,paid'), []);
+  const halfdays = useQuery(() => supabase.from('half_days').select('employee_id,the_date,from_time,to_time,paid'), []);
 
   // Re-evaluate each minute so today's absences and auto checkouts track the clock.
   useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
@@ -41,11 +47,23 @@ export default function CeoView() {
     && (!dept || (e.department?.name || '—') === dept)
     && (!shift || (e.shift?.name || '') === shift)), [emps.data, dept, shift]);
   const countedIds = useMemo(() => new Set(counted.map((e) => e.id)), [counted]);
+  const halfByKey = useMemo(() => { const m = {}; (halfdays.data ?? []).forEach((h) => { m[`${h.employee_id}|${h.the_date}`] = h; }); return m; }, [halfdays.data]);
+  const leavesByEmp = useMemo(() => { const m = {}; (leaves.data ?? []).forEach((l) => { (m[l.employee_id] ||= []).push(l); }); return m; }, [leaves.data]);
+  // A Leave day is paid unless its leave record is unpaid (night shift: next day too).
+  const leavePaid = (r) => {
+    const within = (l, d) => d >= l.start_date && d <= (l.end_date || l.start_date);
+    const list = leavesByEmp[r.employee_id] || [];
+    const l = list.find((x) => within(x, r.work_date)) || list.find((x) => within(x, nextDayOf(r.work_date)));
+    return l ? l.paid : true;
+  };
 
-  // Every report row in range for those people, with auto-checkout applied.
+  // Every report row in range for those people, with auto-checkout and the
+  // half-day overlay (a half day keeps its status but loses the absent hours).
   const rows = useMemo(() => (range.data ?? [])
     .filter((r) => countedIds.has(r.employee_id))
-    .map((r) => withAutoCheckout(r, Date.now())), [range.data, countedIds, tick]);
+    .map((r) => withAutoCheckout(r, Date.now()))
+    .map((r) => { const h = halfByKey[`${r.employee_id}|${r.work_date}`]; return h ? { ...r, half: true, worked_minutes: r.worked_minutes != null ? Math.max(0, r.worked_minutes - hdMins(h)) : r.worked_minutes } : r; }),
+    [range.data, countedIds, tick, halfByKey]);
 
   // Status buckets (person-days over the range; people when it is one day).
   const present = rows.filter((r) => r.status === 'Present' || r.status === 'Incomplete');
@@ -57,6 +75,9 @@ export default function CeoView() {
   const scheduled = present.length + absent.length;
   const rate = scheduled ? Math.round((present.length / scheduled) * 100) : 0;
   const share = (n) => (scheduled ? (n / Math.max(scheduled, 1)) * 100 : 0);
+  const halfCount = rows.filter((r) => r.half).length;
+  const paidLeaveCount = leave.filter((r) => leavePaid(r)).length;
+  const unpaidLeaveCount = leave.length - paidLeaveCount;
 
   const headByDept = useMemo(() => {
     const m = new Map();
@@ -124,11 +145,13 @@ export default function CeoView() {
     const m = new Map();
     for (const r of rows) {
       const k = r.employee_id;
-      if (!m.has(k)) m.set(k, { id: k, employee_id: k, name: fullName(r), emp_code: r.emp_code, department: r.department || '—', present: 0, absent: 0, late: 0, worked: 0, ot: 0 });
+      if (!m.has(k)) m.set(k, { id: k, employee_id: k, name: fullName(r), emp_code: r.emp_code, department: r.department || '—', present: 0, absent: 0, late: 0, half: 0, paidLeave: 0, unpaidLeave: 0, worked: 0, ot: 0 });
       const x = m.get(k);
       if (r.status === 'Present' || r.status === 'Incomplete') x.present++;
       else if (r.status === 'Absent') x.absent++;
+      else if (r.status === 'Leave') { if (leavePaid(r)) x.paidLeave++; else x.unpaidLeave++; }
       if ((r.late_minutes ?? 0) > 0) x.late++;
+      if (r.half) x.half++;
       x.worked += r.worked_minutes ?? 0;
       x.ot += r.overtime_minutes ?? 0;
     }
@@ -136,7 +159,7 @@ export default function CeoView() {
       const sched = x.present + x.absent;
       return { ...x, attendance: sched ? Math.round((x.present / sched) * 100) : null, ontime: x.present ? Math.round(((x.present - x.late) / x.present) * 100) : null };
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [rows]);
+  }, [rows, leavesByEmp]);
 
   // Build drawer rows from a list of report rows. On a single day each entry is a
   // person; over a range each is a person-day, so we show the date in the meta.
@@ -200,6 +223,7 @@ export default function CeoView() {
       ['Counted staff', counted.length], ['Days scheduled', scheduled], ['Attendance rate', `${rate}%`],
       ['Present', present.length], ['Absent', absent.length], ['Still in', incomplete.length],
       ['Late arrivals', late.length], ['On leave', leave.length], ['Not due yet', upcoming.length],
+      ['Paid leave', paidLeaveCount], ['Unpaid leave', unpaidLeaveCount], ['Half days', halfCount],
       ['Departments', headByDept.size], ['Date range', rangeLabel], ['Filters', filterNote || 'All'],
     ];
     const deptTable = {
@@ -213,10 +237,11 @@ export default function CeoView() {
       rows: byShift.map((s) => [s.shift, s.headcount, s.present, s.absent, s.notdue, s.late]),
     };
     const peopleTable = {
-      label: 'Per person', statusCol: -1, numCols: [1, 2, 3, 4, 5, 6], widths: { 0: 150 },
-      columns: ['Person', 'Present', 'Absent', 'Late', 'Att %', 'On-time %', 'Hours'],
-      rows: perPerson.map((p) => [p.name, p.present, p.absent, p.late,
-        p.attendance == null ? '—' : `${p.attendance}%`, p.ontime == null ? '—' : `${p.ontime}%`, minutesToHM(p.worked)]),
+      label: 'Per person', statusCol: -1, numCols: [1, 2, 3, 4, 5, 6, 7, 8],
+      widths: { 0: 118, 1: 44, 2: 42, 3: 34, 4: 34, 5: 42, 6: 52, 7: 40, 8: 50 },
+      columns: ['Person', 'Present', 'Absent', 'Late', 'Half', 'Paid lv', 'Unpaid lv', 'Att %', 'Hours'],
+      rows: perPerson.map((p) => [p.name, p.present, p.absent, p.late, p.half, p.paidLeave, p.unpaidLeave,
+        p.attendance == null ? '—' : `${p.attendance}%`, minutesToHM(p.worked)]),
     };
     downloadReportPDF({
       fileName: `CEO overview - ${from} to ${to}`,
@@ -365,6 +390,9 @@ export default function CeoView() {
             { key: 'present', label: 'Present', num: true },
             { key: 'absent', label: 'Absent', num: true },
             { key: 'late', label: 'Late', num: true },
+            { key: 'half', label: 'Half days', num: true },
+            { key: 'paidLeave', label: 'Paid lv', num: true },
+            { key: 'unpaidLeave', label: 'Unpaid lv', num: true },
             { key: 'attendance', label: 'Attendance', num: true, render: (r) => bar(r.attendance), sort: (r) => r.attendance ?? -1 },
             { key: 'ontime', label: 'On time', num: true, render: (r) => bar(r.ontime), sort: (r) => r.ontime ?? -1 },
             { key: 'worked', label: 'Hours', num: true, render: (r) => minutesToHM(r.worked) },
