@@ -2,11 +2,10 @@ import { useMemo, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { todayISO, daysAgoISO, fmtDate, fmtTime, minutesToHM } from '../lib/format';
-import { Users, UserCheck, UserX, TrendingUp, Clock, Plane, Hourglass } from 'lucide-react';
+import { Users, UserCheck, UserX, TrendingUp, Clock, Plane, Hourglass, FileText } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat, Drawer, PersonRow } from '../components/ui.jsx';
 import { withAutoCheckout } from '../lib/attendance';
 import DateRangePicker from '../components/DateRangePicker.jsx';
-import PrintHeader from '../components/PrintHeader.jsx';
 
 export default function CeoView() {
   const today = todayISO();
@@ -177,15 +176,56 @@ export default function CeoView() {
   const dayWord = isToday ? 'today' : oneDay ? 'that day' : 'in range';
   const clickHint = oneDay ? 'Click any tile to see who.' : 'Totals over the range — click any tile to drill in.';
 
+  // One-click branded PDF — same letterhead, logo, footer and no URL link as the
+  // other exports: hero metrics, the full summary, then the dept / shift / person
+  // breakdowns.
+  async function buildPdf() {
+    const { downloadReportPDF } = await import('../lib/pdf');
+    const rangeLabel = `${fmtDate(from)} – ${fmtDate(to)}`;
+    const hero = [
+      { value: `${rate}%`, label: 'Attendance' },
+      { value: String(present.length), label: isToday ? 'Present today' : 'Present' },
+      { value: String(absent.length), label: 'Absent' },
+      { value: String(counted.length), label: 'Counted staff' },
+    ];
+    const figures = [
+      ['Counted staff', counted.length], ['Days scheduled', scheduled], ['Attendance rate', `${rate}%`],
+      ['Present', present.length], ['Absent', absent.length], ['Still in', incomplete.length],
+      ['Late arrivals', late.length], ['On leave', leave.length], ['Not due yet', upcoming.length],
+      ['Departments', headByDept.size], ['Date range', rangeLabel], ['Filters', filterNote || 'All'],
+    ];
+    const deptTable = {
+      label: 'By department', statusCol: -1, numCols: [1, 2, 3, 4, 5], widths: { 0: 150 },
+      columns: ['Department', 'Staff', 'Present', 'Absent', 'Late', 'Leave'],
+      rows: byDept.map((d) => [d.department, d.headcount, d.present, d.absent, d.late, d.leave]),
+    };
+    const shiftTable = {
+      label: 'By shift', statusCol: -1, numCols: [1, 2, 3, 4, 5], widths: { 0: 150 },
+      columns: ['Shift', 'Staff', 'Present', 'Absent', 'Not due', 'Late'],
+      rows: byShift.map((s) => [s.shift, s.headcount, s.present, s.absent, s.notdue, s.late]),
+    };
+    const peopleTable = {
+      label: 'Per person', statusCol: -1, numCols: [1, 2, 3, 4, 5, 6], widths: { 0: 150 },
+      columns: ['Person', 'Present', 'Absent', 'Late', 'Att %', 'On-time %', 'Hours'],
+      rows: perPerson.map((p) => [p.name, p.present, p.absent, p.late,
+        p.attendance == null ? '—' : `${p.attendance}%`, p.ontime == null ? '—' : `${p.ontime}%`, minutesToHM(p.worked)]),
+    };
+    downloadReportPDF({
+      fileName: `CEO overview - ${from} to ${to}`,
+      kicker: 'CEO overview', subject: 'Company attendance',
+      sub: `${rangeLabel}${filterNote ? `  ·  ${filterNote}` : ''}`,
+      hero, figures, tables: [deptTable, shiftTable, peopleTable],
+    });
+  }
+
   return (
     <>
-      <PrintHeader title="CEO Summary" subtitle={`${fmtDate(from)} to ${fmtDate(to)}${filterNote ? ` · ${filterNote}` : ''}`} />
       <div className="page-title">
         <div>
           <h1>CEO View</h1>
           <p className="page-intro">The whole company at a glance. {clickHint}</p>
         </div>
-        <button className="btn primary no-print" onClick={() => window.print()}>Export PDF</button>
+        <button className="btn primary no-print" onClick={buildPdf}><FileText size={15} /> Export PDF</button>
       </div>
 
       <Card className="no-print overflow-visible">

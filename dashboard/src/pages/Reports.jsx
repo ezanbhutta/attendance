@@ -3,11 +3,10 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { fmtTime, minutesToHM, fmtDate, todayISO, daysAgoISO } from '../lib/format';
 import { downloadCSV } from '../lib/csv';
-import { Download, Printer, UserCheck, UserX, Clock, Plane, Timer, TrendingUp, Gift } from 'lucide-react';
+import { Download, FileText, UserCheck, UserX, Clock, Plane, Timer, TrendingUp, Gift } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 import { withAutoCheckout } from '../lib/attendance';
-import PrintHeader from '../components/PrintHeader.jsx';
 
 const STATUSES = ['Present', 'Incomplete', 'Absent', 'Late', 'Leave', 'Holiday', 'HolidayWorked', 'WeeklyOff'];
 const VIEWS = [
@@ -18,6 +17,14 @@ const VIEWS = [
 ];
 
 const empName = (r) => r.employee?.trim() || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim();
+const hmS = (m) => (m == null ? '—' : m < 60 ? `${m}m` : minutesToHM(m));   // compact sub-hour
+const pct = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : '—');
+const REPORTS_LEGEND = [
+  'Present — scanned in (and out). Incomplete — scanned in but never out. Absent — a working day with no scan.',
+  'Late — first scan after the shift start plus grace. Overtime — time scanned out past the shift end.',
+  'In grouped views, Attendance % is days present out of days scheduled; On-time % is the share of attended days that were not late.',
+  'WeeklyOff / Holiday / Leave are not counted absent. HolidayWorked — a holiday volunteer who came in; counts as a bonus day.',
+];
 
 export default function Reports() {
   const [view, setView] = useState('detailed');
@@ -135,6 +142,59 @@ export default function Reports() {
     downloadCSV(`report_${view}_${from}_${to}.csv`, data, csvCols);
   }
 
+  // One-click branded PDF (landscape — report tables are wide). Same letterhead,
+  // logo, footer and no URL link as the Statement export.
+  async function buildPdf() {
+    if (!data.length) return;
+    const { downloadReportPDF } = await import('../lib/pdf');
+    const rangeLabel = `${fmtDate(from)} – ${fmtDate(to)}`;
+    const hero = [
+      { value: String(totals.present), label: 'Present' },
+      { value: String(totals.absent), label: 'Absent' },
+      { value: String(totals.late), label: 'Late' },
+      { value: minutesToHM(totals.worked), label: 'Worked' },
+    ];
+    const figures = [
+      ['Records', isDetailed ? rows.length : `${grouped.length} group${grouped.length === 1 ? '' : 's'}`],
+      ['Present', totals.present], ['Absent', totals.absent], ['Late', totals.late],
+      ['On leave', totals.leave], ['Holiday bonus', totals.bonus],
+      ['Total worked', minutesToHM(totals.worked)], ['Total overtime', minutesToHM(totals.ot)],
+      ['Date range', rangeLabel],
+    ];
+    const common = {
+      fileName: `Attendance report - ${viewLabel} - ${from} to ${to}`,
+      kicker: 'Attendance report', subject: viewLabel,
+      sub: `${rangeLabel}${filterNote ? `  ·  ${filterNote}` : ''}`,
+      orientation: 'landscape', hero, figures, legend: REPORTS_LEGEND,
+    };
+    if (isDetailed) {
+      const columns = ['Date', 'PIN', 'Name', 'Department', 'Shift', 'In', 'Out', 'Late', 'Worked', 'OT', 'Status'];
+      const pdfRows = rows.map((r) => [
+        fmtDate(r.work_date), r.emp_code, empName(r), r.department ?? '—', r.shift ?? '—',
+        r.first_in ? fmtTime(r.first_in) : '—', r.last_out ? fmtTime(r.last_out) : '—',
+        (r.late_minutes ?? 0) > 0 ? hmS(r.late_minutes) : '—',
+        minutesToHM(r.worked_minutes),
+        (r.overtime_minutes ?? 0) > 0 ? hmS(r.overtime_minutes) : '—',
+        r.status,
+      ]);
+      downloadReportPDF({ ...common,
+        detail: { label: viewLabel, columns, rows: pdfRows, statusCol: 10, numCols: [7, 8, 9],
+          widths: { 0: 66, 1: 34, 2: 118, 3: 90, 4: 86, 5: 44, 6: 44, 7: 48, 8: 56, 9: 46 } } });
+    } else {
+      const groupHead = view === 'employee' ? 'Employee' : view === 'department' ? 'Department' : 'Shift';
+      const columns = [groupHead, 'Present', 'Absent', 'Incomplete', 'Leave', 'Bonus', 'Attendance', 'On time', 'Late days', 'Worked', 'Overtime'];
+      const pdfRows = grouped.map((g) => {
+        const att = g.present + g.incomplete + g.absent, att2 = g.present + g.incomplete;
+        return [g.label, g.present, g.absent, g.incomplete, g.leave, g.bonus,
+          pct(g.present + g.incomplete, att), att2 ? pct(att2 - g.late, att2) : '—',
+          g.late, minutesToHM(g.worked), minutesToHM(g.ot)];
+      });
+      downloadReportPDF({ ...common,
+        roster: { label: viewLabel, columns, rows: pdfRows, statusCol: -1,
+          numCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], widths: { 0: 140 } } });
+    }
+  }
+
   const filterNote = [
     dept && `Dept: ${dept}`, shift && `Shift: ${shift}`,
     emp && `Employee: ${empName((emps.data ?? []).find((e) => String(e.id) === String(emp)) || {})}`,
@@ -143,9 +203,6 @@ export default function Reports() {
 
   return (
     <>
-      <PrintHeader title={`Attendance report: ${viewLabel}`}
-        subtitle={`${fmtDate(from)} to ${fmtDate(to)}${filterNote ? ` · ${filterNote}` : ''}`} />
-
       <div className="page-title">
         <div>
           <h1>Reports</h1>
@@ -153,7 +210,7 @@ export default function Reports() {
         </div>
         <div className="inline-actions no-print">
           <button className="btn" onClick={exportCSV} disabled={!data.length}><Download size={15} /> CSV</button>
-          <button className="btn primary" onClick={() => window.print()} disabled={!data.length}><Printer size={15} /> PDF</button>
+          <button className="btn primary" onClick={buildPdf} disabled={!data.length}><FileText size={15} /> PDF</button>
         </div>
       </div>
 

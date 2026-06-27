@@ -8,7 +8,6 @@ import { interRegular, interMedium, interSemiBold, interBold } from './pdfFonts'
 // (masthead + hero metrics + summary + day-by-day) or a whole shift /
 // department (an aggregate cover, then a section per person) in one document.
 
-const A4 = { w: 595.28, h: 841.89 };
 const M = 54;                          // page margin
 const INK = [17, 17, 21];              // near-black, primary
 const SOFT = [92, 91, 102];            // secondary text
@@ -49,8 +48,10 @@ function registerFonts(doc) {
 }
 
 // ── small drawing helpers ───────────────────────────────────────────────────
-const rule = (doc, y, color = HAIR, w = 0.6, x1 = M, x2 = A4.w - M) =>
-  doc.setDrawColor(...color).setLineWidth(w).line(x1, y, x2, y);
+const pageW = (doc) => doc.internal.pageSize.getWidth();
+const pageH = (doc) => doc.internal.pageSize.getHeight();
+const rule = (doc, y, color = HAIR, w = 0.6, x1 = M, x2 = null) =>
+  doc.setDrawColor(...color).setLineWidth(w).line(x1, y, x2 == null ? pageW(doc) - M : x2, y);
 const set = (doc, weight, size, color) => {
   doc.setFont('Inter', weight).setFontSize(size);
   if (color) doc.setTextColor(...color);
@@ -65,7 +66,7 @@ function mastheadTop(doc, logo, generated) {
   set(doc, 'semibold', 10.5, INK);
   doc.text('HaseebMadeit', M + 21, y + 11.4);
   set(doc, 'normal', 8.4, FAINT);
-  doc.text(generated, A4.w - M, y + 10, { align: 'right' });
+  doc.text(generated, pageW(doc) - M, y + 10, { align: 'right' });
   rule(doc, y + 25, HAIR, 0.6);
   return y + 25;
 }
@@ -89,18 +90,18 @@ function subjectBlock(doc, y, { kicker, subject, sub }, compact = false) {
 function heroBand(doc, y, metrics) {
   if (!metrics?.length) return y;
   y += 26;
-  const usable = A4.w - 2 * M, col = usable / metrics.length, H = 58;
+  const usable = pageW(doc) - 2 * M, col = usable / metrics.length, bh = 58;
   rule(doc, y, INK, 0.8);
   metrics.forEach((m, i) => {
     const x = M + col * i;
-    if (i > 0) doc.setDrawColor(...HAIRX).setLineWidth(0.6).line(x, y + 13, x, y + H - 8); // quiet column separator
+    if (i > 0) doc.setDrawColor(...HAIRX).setLineWidth(0.6).line(x, y + 13, x, y + bh - 8); // quiet column separator
     set(doc, 'semibold', 20, INK);
     tracked(doc, String(m.value), x + (i ? 16 : 0), y + 32, -0.4);
     set(doc, 'medium', 7.4, FAINT);
     tracked(doc, m.label.toUpperCase(), x + (i ? 16 : 0), y + 47, 0.8);
   });
-  rule(doc, y + H, HAIR, 0.6);
-  return y + H;
+  rule(doc, y + bh, HAIR, 0.6);
+  return y + bh;
 }
 
 function eyebrow(doc, y, label) {
@@ -180,36 +181,38 @@ function detailTable(doc, y, columns, rows, { label = 'Day by day', statusCol = 
 }
 
 function footers(doc, subjectName) {
+  const W = pageW(doc), H = pageH(doc);
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    rule(doc, A4.h - 34, HAIR, 0.5);
+    rule(doc, H - 34, HAIR, 0.5);
     set(doc, 'semibold', 7.4, SOFT);
-    doc.text('HaseebMadeit', M, A4.h - 22);
+    doc.text('HaseebMadeit', M, H - 22);
     const wb = doc.getTextWidth('HaseebMadeit');
     set(doc, 'normal', 7.4, FAINT);
-    doc.text('Attendance OS', M + wb + 7, A4.h - 22);
-    doc.text(`${subjectName}    ·    ${i} / ${pages}`, A4.w - M, A4.h - 22, { align: 'right' });
+    doc.text('Attendance OS', M + wb + 7, H - 22);
+    doc.text(`${subjectName}    ·    ${i} / ${pages}`, W - M, H - 22, { align: 'right' });
   }
 }
 
 function legendBlock(doc, y, legend) {
   if (!legend?.length) return y;
-  if (y > A4.h - 150) { doc.addPage(); y = M - 28; }
+  const W = pageW(doc), H = pageH(doc);
+  if (y > H - 150) { doc.addPage(); y = M - 28; }
   y += 30;
   y = eyebrow(doc, y, 'Notes') + 12;
   set(doc, 'normal', 8.6, SOFT);
   legend.forEach((line) => {
-    const wrapped = doc.splitTextToSize(line, A4.w - 2 * M);
-    if (y + wrapped.length * 12 > A4.h - M) { doc.addPage(); y = M; }
+    const wrapped = doc.splitTextToSize(line, W - 2 * M);
+    if (y + wrapped.length * 12 > H - M) { doc.addPage(); y = M; }
     doc.text(wrapped, M, y, { lineHeightFactor: 1.4 });
     y += wrapped.length * 12 + 4;
   });
   return y;
 }
 
-export async function downloadReportPDF({ fileName, kicker, subject, sub, generated, hero = [], figures = [], detail, roster, sections, legend = [] }) {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+export async function downloadReportPDF({ fileName, kicker, subject, sub, generated, orientation = 'portrait', hero = [], figures = [], detail, roster, tables, sections, legend = [] }) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation });
   registerFonts(doc);
   doc.setFont('Inter', 'normal');
   const logo = await logoPng();
@@ -220,8 +223,11 @@ export async function downloadReportPDF({ fileName, kicker, subject, sub, genera
   y = subjectBlock(doc, y, { kicker, subject, sub });
   y = heroBand(doc, y, hero);
   if (figures.length) y = summaryGrid(doc, y, figures, sections?.length ? 'Overall summary' : 'Summary');
-  if (roster) y = detailTable(doc, y, roster.columns, roster.rows, { label: 'Roster', statusCol: -1, numCols: roster.numCols || [], widths: roster.widths || {} });
-  if (detail) y = detailTable(doc, y, detail.columns, detail.rows, { label: 'Day by day', statusCol: detail.statusCol ?? 1, numCols: detail.numCols || [], widths: detail.widths || {} });
+  if (roster) y = detailTable(doc, y, roster.columns, roster.rows, { label: roster.label || 'Roster', statusCol: roster.statusCol ?? -1, numCols: roster.numCols || [], widths: roster.widths || {} });
+  if (detail) y = detailTable(doc, y, detail.columns, detail.rows, { label: detail.label || 'Day by day', statusCol: detail.statusCol ?? 1, numCols: detail.numCols || [], widths: detail.widths || {} });
+  if (tables?.length) tables.forEach((t) => {
+    y = detailTable(doc, y, t.columns, t.rows, { label: t.label || 'Detail', statusCol: t.statusCol ?? -1, numCols: t.numCols || [], widths: t.widths || {} });
+  });
 
   if (sections?.length) {
     sections.forEach((s) => {

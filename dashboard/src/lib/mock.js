@@ -119,7 +119,8 @@ function historyRow(p, back) {
   const sh = startHour(p), eh = endHour(p);
   const first_in = ts(date, sh, late);
   const last_out = ts(date, eh, outExtra);
-  const worked = (eh * 60 + outExtra) - (sh * 60 + late) - 60;
+  const endMin = (eh <= sh ? eh + 24 : eh) * 60 + outExtra;   // night shifts wrap past midnight
+  const worked = endMin - (sh * 60 + late) - 60;
   return { ...base, status: 'Present', late_minutes: late, first_in, last_out,
     worked_minutes: worked, overtime_minutes: outExtra > 15 ? outExtra - 15 : 0 };
 }
