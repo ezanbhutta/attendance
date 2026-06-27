@@ -75,7 +75,7 @@ export default function Statement() {
   const shifts = useQuery(() => supabase.from('shifts').select('name').order('name'), []);
   const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
   const holidays = useQuery(() => supabase.from('holidays').select('the_date,name'), []);
-  const leaves = useQuery(() => supabase.from('leaves').select('employee_id,leave_type,status,start_date,end_date'), []);
+  const leaves = useQuery(() => supabase.from('leaves').select('employee_id,leave_type,status,paid,start_date,end_date'), []);
   const report = useQuery(() =>
     supabase.from('v_report_daily').select('*').gte('work_date', from).lte('work_date', to).order('work_date'), [from, to]);
 
@@ -110,7 +110,7 @@ export default function Statement() {
     const within = (l, d) => d >= l.start_date && d <= (l.end_date || l.start_date);
     let lv = (leavesByEmp[e.id] ?? []).find((l) => within(l, r.date));
     if (!lv && r.status === 'Leave') lv = (leavesByEmp[e.id] ?? []).find((l) => within(l, nextDay(r.date)));
-    if (lv) parts.push(`${cap(lv.leave_type)} leave (${lv.status})`);
+    if (lv) parts.push(`${cap(lv.leave_type)} leave (${lv.status} · ${lv.paid ? 'paid' : 'unpaid'})`);
     if (r.status === 'WeeklyOff') parts.push('Weekly off');
     const n = plainNote(r);
     if (n) parts.push(n);

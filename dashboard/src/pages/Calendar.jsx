@@ -10,12 +10,12 @@ export default function Calendar() {
   const holidays = useQuery(() => supabase.from('holidays').select('id,the_date,name').order('the_date', { ascending: false }), []);
   const leaves = useQuery(() =>
     supabase.from('leaves')
-      .select('id,leave_type,start_date,end_date,status,employee:employees(emp_code,first_name)')
+      .select('id,leave_type,start_date,end_date,status,paid,employee:employees(emp_code,first_name)')
       .order('start_date', { ascending: false }), []);
   const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const workers = useQuery(() => supabase.from('holiday_workers').select('the_date,employee_id,employee:employees(emp_code,first_name,last_name)'), []);
   const [hol, setHol] = useState({ the_date: '', name: '' });
-  const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved' });
+  const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved', paid: true });
   const [err, setErr] = useState(null);
   const [workHol, setWorkHol] = useState(null);   // holiday whose "who's working" drawer is open
 
@@ -29,7 +29,7 @@ export default function Calendar() {
     e.preventDefault(); setErr(null);
     const { error } = await supabase.from('leaves').insert({ ...lv, end_date: lv.end_date || lv.start_date });
     if (error) return setErr(error);
-    setLv({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved' });
+    setLv({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved', paid: true });
     leaves.refetch();
   }
   const del = (table, id, refetch) => async () => {
@@ -75,7 +75,7 @@ export default function Calendar() {
           </Field>
           <Field label="Type">
             <select value={lv.leave_type} onChange={(e) => setLv({ ...lv, leave_type: e.target.value })}>
-              {['annual', 'sick', 'casual', 'unpaid'].map((t) => <option key={t} value={t}>{t}</option>)}
+              {['annual', 'sick', 'casual'].map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </Field>
           <Field label="Start *"><input type="date" required value={lv.start_date} onChange={(e) => setLv({ ...lv, start_date: e.target.value })} /></Field>
@@ -85,6 +85,12 @@ export default function Calendar() {
               {['approved', 'pending', 'rejected'].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </Field>
+          <Field label="Pay">
+            <div className="inline-actions">
+              <button type="button" className={`btn sm ${lv.paid ? 'primary' : ''}`} onClick={() => setLv({ ...lv, paid: true })}>Paid</button>
+              <button type="button" className={`btn sm ${!lv.paid ? 'primary' : ''}`} onClick={() => setLv({ ...lv, paid: false })}>Unpaid</button>
+            </div>
+          </Field>
           <button className="btn primary">Add leave</button>
         </form>
         <Table
@@ -93,6 +99,7 @@ export default function Calendar() {
             { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
             { key: 'leave_type', label: 'Type' },
             { key: 'range', label: 'Dates', render: (r) => `${fmtDate(r.start_date)} → ${fmtDate(r.end_date)}` },
+            { key: 'paid', label: 'Pay', render: (r) => <Badge value={r.paid ? 'Paid' : 'Unpaid'} kind={r.paid ? 'Leave' : 'Incomplete'} /> },
             { key: 'status', label: 'Status', render: (r) => <Badge value={r.status} kind={r.status === 'approved' ? 'Leave' : 'Incomplete'} /> },
             { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del('leaves', r.id, leaves.refetch)} /> },
           ]}
