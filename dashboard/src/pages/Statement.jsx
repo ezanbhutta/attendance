@@ -7,7 +7,6 @@ import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.j
 import { withAutoCheckout } from '../lib/attendance';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 import PrintHeader from '../components/PrintHeader.jsx';
-import { downloadReportPDF } from '../lib/pdf';
 
 // A complete, shareable attendance record for ONE person, a whole SHIFT, or a
 // whole DEPARTMENT over any date range — every day with its state, the reason it
@@ -57,7 +56,6 @@ const LEGEND = [
   'Auto — never scanned out, so the day was closed at the shift end, four hours later.',
   'WeeklyOff / Holiday / Leave — not counted absent. The Remarks column gives the reason (holiday name, leave type and whether it was approved).',
   'HolidayWorked — a holiday volunteer who came in; counts as a bonus day, and their hours still add to the worked total.',
-  'face / finger / card next to a time shows how that scan was made.',
 ];
 
 export default function Statement() {
@@ -71,7 +69,7 @@ export default function Statement() {
 
   const emps = useQuery(() =>
     supabase.from('employees')
-      .select('id,emp_code,first_name,last_name,track_attendance,weekly_off,department:departments(name),shift:shifts(name)')
+      .select('id,emp_code,first_name,last_name,track_attendance,active,weekly_off,department:departments(name),shift:shifts(name)')
       .order('emp_code'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('name').order('name'), []);
   const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
@@ -80,7 +78,7 @@ export default function Statement() {
   const report = useQuery(() =>
     supabase.from('v_report_daily').select('*').gte('work_date', from).lte('work_date', to).order('work_date'), [from, to]);
 
-  const counted = useMemo(() => (emps.data ?? []).filter((e) => e.track_attendance), [emps.data]);
+  const counted = useMemo(() => (emps.data ?? []).filter((e) => e.track_attendance && e.active !== false), [emps.data]);
   // Default selections once the lists load.
   useEffect(() => { if (!emp && counted.length) setEmp(String(counted[0].id)); }, [counted, emp]);
   useEffect(() => { if (!shiftName && shifts.data?.length) setShiftName(shifts.data[0].name); }, [shifts.data, shiftName]);
@@ -209,40 +207,58 @@ export default function Statement() {
   ];
 
   // ── One-click PDF ──────────────────────────────────────────────────────────
-  const meth = (m) => { const n = methodName(m); return n ? ` ${n}` : ''; };
+  const hmS = (m) => (m == null ? '—' : m < 60 ? `${m}m` : minutesToHM(m));   // compact sub-hour
   const pdfRow = (r) => [
-    `${dlabel(r.date)}, ${weekday(r.date)}`,
+    `${dlabel(r.date)} · ${weekday(r.date)}`,
     r.status || '—',
-    shiftLabel(r),
-    r.first_in ? fmtTime(r.first_in) + meth(r.in_method) : '—',
-    r.last_out ? fmtTime(r.last_out) + meth(r.out_method) + (r.auto_out ? ' (auto)' : '') : '—',
+    r.first_in ? fmtTime(r.first_in) : '—',
+    r.last_out ? fmtTime(r.last_out) : '—',
     minutesToHM(r.worked_minutes),
-    (r.late_minutes ?? 0) > 0 ? minutesToHM(r.late_minutes) : '—',
-    (r.overtime_minutes ?? 0) > 0 ? minutesToHM(r.overtime_minutes) : '—',
+    (r.late_minutes ?? 0) > 0 ? hmS(r.late_minutes) : '—',
+    (r.overtime_minutes ?? 0) > 0 ? hmS(r.overtime_minutes) : '—',
     r.remark || '',
   ];
-  const PDF_COLS = ['Date', 'Status', 'Shift', 'In', 'Out', 'Worked', 'Late', 'OT', 'Remarks'];
+  const PDF_COLS = ['Date', 'Status', 'In', 'Out', 'Worked', 'Late', 'OT', 'Remarks'];
+  const PDF_NUM = [2, 3, 4, 5, 6];
+  const PDF_W = { 0: 68, 1: 88, 2: 38, 3: 38, 4: 50, 5: 44, 6: 44 };
+  const heroOf = (s) => [
+    { value: s.attendanceRate == null ? '—' : `${s.attendanceRate}%`, label: 'Attendance' },
+    { value: s.ontimeRate == null ? '—' : `${s.ontimeRate}%`, label: 'On-time' },
+    { value: String(s.presentTotal), label: 'Days present' },
+    { value: minutesToHM(s.worked), label: 'Total worked' },
+  ];
+  const subOf = (e) => `PIN ${e.emp_code}${e.department?.name ? `  ·  ${e.department.name}` : ''}${e.shift?.name ? `  ·  ${e.shift.name}` : ''}`;
 
-  function buildPdf() {
+  async function buildPdf() {
     if (!people.length) return;
+    const { downloadReportPDF } = await import('../lib/pdf');
     if (single) {
       downloadReportPDF({
-        title: 'Attendance statement',
-        subtitle: `${scopeLabel} · ${rangeLabel}`, metaLine: personLine,
         fileName: `Statement - ${scopeLabel} - ${from} to ${to}`,
-        figures: FIG(one.s), columns: PDF_COLS, rows: one.days.map(pdfRow), legend: LEGEND,
+        kicker: 'Attendance statement', subject: scopeLabel,
+        sub: `${subOf(one.e)}  ·  ${rangeLabel}`,
+        hero: heroOf(one.s), figures: FIG(one.s),
+        detail: { columns: PDF_COLS, rows: one.days.map(pdfRow), statusCol: 1, numCols: PDF_NUM, widths: PDF_W },
+        legend: LEGEND,
       });
     } else {
       const kind = scope === 'shift' ? 'Shift' : 'Department';
+      const rosterColumns = ['Person', 'Department', 'Present', 'Absent', 'Late', 'Leave', 'Bonus', 'Attendance'];
+      const rosterData = people.map(({ e, s }) => [
+        empName(e) || `PIN ${e.emp_code}`, e.department?.name ?? '—',
+        String(s.presentTotal), String(s.absent), String(s.lateDays), String(s.leave), String(s.bonus),
+        s.attendanceRate == null ? '—' : `${s.attendanceRate}%`,
+      ]);
       downloadReportPDF({
-        title: `Attendance — ${scopeLabel}`,
-        subtitle: `${kind} · ${rangeLabel}`, metaLine: `${people.length} ${people.length === 1 ? 'person' : 'people'}`,
         fileName: `${kind} - ${scopeLabel} - ${from} to ${to}`,
-        figures: FIG(agg),
+        kicker: `Attendance — ${kind}`, subject: scopeLabel,
+        sub: `${people.length} ${people.length === 1 ? 'person' : 'people'}  ·  ${rangeLabel}`,
+        hero: heroOf(agg), figures: FIG(agg),
+        roster: { columns: rosterColumns, rows: rosterData, numCols: [2, 3, 4, 5, 6, 7], widths: { 0: 150, 1: 100 } },
         sections: people.map(({ e, s, days }) => ({
-          heading: empName(e) || `PIN ${e.emp_code}`,
-          subLine: `PIN ${e.emp_code}${e.department?.name ? ` · ${e.department.name}` : ''}${e.shift?.name ? ` · ${e.shift.name}` : ''}`,
-          figures: FIG(s), columns: PDF_COLS, rows: days.map(pdfRow),
+          kicker: 'Employee', subject: empName(e) || `PIN ${e.emp_code}`, sub: subOf(e),
+          hero: heroOf(s), figures: FIG(s),
+          detail: { columns: PDF_COLS, rows: days.map(pdfRow), statusCol: 1, numCols: PDF_NUM, widths: PDF_W },
         })),
         legend: LEGEND,
       });

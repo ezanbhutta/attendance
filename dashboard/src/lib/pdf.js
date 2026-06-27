@@ -1,20 +1,32 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { interRegular, interMedium, interSemiBold, interBold } from './pdfFonts';
 
-// One-click, branded PDF export. Builds the document in-app (no browser print
-// dialog, no URL footer) so a single click downloads a clean, paginated report.
-// Works for one person (figures + table) or many (an aggregate summary on the
-// cover, then a section per employee) — all in a single document.
+// One-click, art-directed PDF export — a "Minimal Swiss" attendance document:
+// real Inter typography, generous whitespace, hairline rules and restrained
+// colour. Built in-app (no print dialog, no URL footer). Renders one person
+// (masthead + hero metrics + summary + day-by-day) or a whole shift /
+// department (an aggregate cover, then a section per person) in one document.
 
-const ACCENT = [114, 41, 255];   // #7229FF
-const INK = [21, 20, 27];
-const MUTE = [108, 106, 120];
-const HAIR = [232, 230, 240];
-const M = 42;
+const A4 = { w: 595.28, h: 841.89 };
+const M = 54;                          // page margin
+const INK = [17, 17, 21];              // near-black, primary
+const SOFT = [92, 91, 102];            // secondary text
+const FAINT = [150, 149, 161];         // captions / labels
+const HAIR = [225, 224, 233];          // hairline
+const HAIRX = [238, 237, 244];         // softer hairline (row rules)
+const ACCENT = [114, 41, 255];         // #7229FF — the one spot of colour
+
+const STATUS_COLOR = {
+  Present: [22, 150, 86], HolidayWorked: [22, 150, 86],
+  Incomplete: [200, 120, 10], Absent: [214, 45, 50],
+  Leave: [42, 104, 224], WeeklyOff: [150, 149, 161], Holiday: [124, 58, 237],
+};
+const OFF = new Set(['WeeklyOff', 'Holiday', 'Leave', '—', '']);
 
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 392.35 392.35"><rect width="392.35" height="392.35" rx="86" fill="#7229FF"/><path fill="#ffffff" d="M187.32,115.24h17.71c2.46,0,4.46,1.99,4.46,4.46v61.29c0,1.98-1.31,3.73-3.21,4.28l-17.71,5.16c-2.86.83-5.7-1.31-5.7-4.28v-66.45c0-2.46,1.99-4.46,4.46-4.46ZM167.44,142.55v50.69c0,1.98-1.31,3.73-3.21,4.28l-17.71,5.16c-2.86.83-5.7-1.31-5.7-4.28v-55.85c0-2.46,1.99-4.46,4.46-4.46h17.71c2.46,0,4.46,1.99,4.46,4.46ZM144.03,219.52l17.71-5.16c2.86-.83,5.7,1.31,5.7,4.28v31.16c0,2.46-1.99,4.46-4.46,4.46h-17.71c-2.46,0-4.46-1.99-4.46-4.46v-26c0-1.98,1.31-3.73,3.21-4.28ZM186.07,207.27l17.71-5.16c2.86-.83,5.7,1.31,5.7,4.28v66.26c0,2.46-1.99,4.46-4.46,4.46h-17.71c-2.46,0-4.46-1.99-4.46-4.46v-61.1c0-1.99,1.31-3.73,3.21-4.28ZM224.9,249.8v-50.5c0-1.98,1.31-3.73,3.21-4.28l17.71-5.16c2.86-.83,5.7,1.31,5.7,4.28v55.66c0,2.46-1.99,4.46-4.46,4.46h-17.71c-2.46,0-4.46-1.99-4.46-4.46ZM251.52,142.55v26.19c0,1.99-1.31,3.73-3.21,4.28l-17.71,5.16c-2.86.83-5.7-1.31-5.7-4.28v-31.35c0-2.46,1.99-4.46,4.46-4.46h17.71c2.46,0,4.46,1.99,4.46,4.46h0Z"/></svg>`;
 
-function logoPng(px = 110) {
+function logoPng(px = 96) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -29,35 +41,78 @@ function logoPng(px = 110) {
   });
 }
 
-function letterhead(doc, logo, { title, subtitle, metaLine }) {
-  const W = doc.internal.pageSize.getWidth();
-  const now = new Date();
-  let y = M;
-  if (logo) doc.addImage(logo, 'PNG', M, y, 30, 30);
-  doc.setFont('helvetica', 'bold').setFontSize(13).setTextColor(...INK);
-  doc.text('HaseebMadeit', M + 40, y + 12);
-  doc.setFont('helvetica', 'bold').setFontSize(6.6).setTextColor(...ACCENT);
-  doc.text('A T T E N D A N C E   O S', M + 40, y + 23);
-  doc.setFont('helvetica', 'normal').setFontSize(6.4).setTextColor(160, 160, 170);
-  doc.text('GENERATED', W - M, y + 5, { align: 'right' });
-  doc.setFontSize(8.5).setTextColor(110, 110, 122);
-  doc.text(now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), W - M, y + 16, { align: 'right' });
-  doc.text(now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), W - M, y + 27, { align: 'right' });
-  y += 38;
-  doc.setDrawColor(...ACCENT).setLineWidth(1.8).line(M, y, W - M, y);
-  y += 24;
-  doc.setFont('helvetica', 'bold').setFontSize(19).setTextColor(...INK);
-  doc.text(title, M, y); y += 16;
-  if (subtitle) { doc.setFont('helvetica', 'normal').setFontSize(11).setTextColor(...MUTE); doc.text(subtitle, M, y); y += 14; }
-  if (metaLine) { doc.setFontSize(9.5).setTextColor(...MUTE); doc.text(metaLine, M, y); y += 6; }
+function registerFonts(doc) {
+  doc.addFileToVFS('Inter-Regular.ttf', interRegular); doc.addFont('Inter-Regular.ttf', 'Inter', 'normal');
+  doc.addFileToVFS('Inter-Medium.ttf', interMedium); doc.addFont('Inter-Medium.ttf', 'Inter', 'medium');
+  doc.addFileToVFS('Inter-SemiBold.ttf', interSemiBold); doc.addFont('Inter-SemiBold.ttf', 'Inter', 'semibold');
+  doc.addFileToVFS('Inter-Bold.ttf', interBold); doc.addFont('Inter-Bold.ttf', 'Inter', 'bold');
+}
+
+// ── small drawing helpers ───────────────────────────────────────────────────
+const rule = (doc, y, color = HAIR, w = 0.6, x1 = M, x2 = A4.w - M) =>
+  doc.setDrawColor(...color).setLineWidth(w).line(x1, y, x2, y);
+const set = (doc, weight, size, color) => {
+  doc.setFont('Inter', weight).setFontSize(size);
+  if (color) doc.setTextColor(...color);
+};
+const tracked = (doc, text, x, y, space, opts) => {
+  doc.setCharSpace(space); doc.text(text, x, y, opts); doc.setCharSpace(0);
+};
+
+function mastheadTop(doc, logo, generated) {
+  const y = M;
+  if (logo) doc.addImage(logo, 'PNG', M, y, 15, 15);
+  set(doc, 'semibold', 10.5, INK);
+  doc.text('HaseebMadeit', M + 21, y + 11.4);
+  set(doc, 'normal', 8.4, FAINT);
+  doc.text(generated, A4.w - M, y + 10, { align: 'right' });
+  rule(doc, y + 25, HAIR, 0.6);
+  return y + 25;
+}
+
+// Eyebrow kicker, big subject name, quiet subline. The subject (person / shift /
+// department) is the hero of the page.
+function subjectBlock(doc, y, { kicker, subject, sub }, compact = false) {
+  y += compact ? 6 : 40;
+  set(doc, 'semibold', 8, ACCENT);
+  tracked(doc, kicker.toUpperCase(), M, y, 1.4);
+  y += compact ? 20 : 26;
+  set(doc, 'bold', compact ? 21 : 29, INK);
+  tracked(doc, subject, M, y, compact ? -0.3 : -0.5);
+  y += compact ? 15 : 17;
+  if (sub) { set(doc, 'normal', 10, SOFT); doc.text(sub, M, y); y += 6; }
   return y;
 }
 
-function summaryBlock(doc, y, figures, label = 'SUMMARY') {
-  const W = doc.internal.pageSize.getWidth();
-  y += 16;
-  doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...ACCENT);
-  doc.text(label, M, y);
+// A band of up to four big metrics, hairline-ruled top and bottom with quiet
+// vertical separators — the at-a-glance headline numbers.
+function heroBand(doc, y, metrics) {
+  if (!metrics?.length) return y;
+  y += 26;
+  const usable = A4.w - 2 * M, col = usable / metrics.length, H = 58;
+  rule(doc, y, INK, 0.8);
+  metrics.forEach((m, i) => {
+    const x = M + col * i;
+    if (i > 0) doc.setDrawColor(...HAIRX).setLineWidth(0.6).line(x, y + 13, x, y + H - 8); // quiet column separator
+    set(doc, 'semibold', 20, INK);
+    tracked(doc, String(m.value), x + (i ? 16 : 0), y + 32, -0.4);
+    set(doc, 'medium', 7.4, FAINT);
+    tracked(doc, m.label.toUpperCase(), x + (i ? 16 : 0), y + 47, 0.8);
+  });
+  rule(doc, y + H, HAIR, 0.6);
+  return y + H;
+}
+
+function eyebrow(doc, y, label) {
+  set(doc, 'semibold', 7.6, FAINT);
+  tracked(doc, label.toUpperCase(), M, y, 1.3);
+  return y + 6;
+}
+
+// Full figure list as a clean three-column definition grid, hairline rows.
+function summaryGrid(doc, y, figures, label = 'Summary') {
+  y += 30;
+  y = eyebrow(doc, y, label) + 6;
   const body = [];
   for (let i = 0; i < figures.length; i += 3) {
     const row = [];
@@ -66,72 +121,119 @@ function summaryBlock(doc, y, figures, label = 'SUMMARY') {
     body.push(row);
   }
   autoTable(doc, {
-    startY: y + 7, body, theme: 'plain',
-    styles: { fontSize: 9, cellPadding: { top: 4.5, bottom: 4.5, left: 0, right: 10 }, textColor: INK },
-    columnStyles: { 0: { textColor: MUTE, cellWidth: 92 }, 1: { fontStyle: 'bold' }, 2: { textColor: MUTE, cellWidth: 92 }, 3: { fontStyle: 'bold' }, 4: { textColor: MUTE, cellWidth: 92 }, 5: { fontStyle: 'bold' } },
+    startY: y, body, theme: 'plain',
+    styles: { font: 'Inter', fontStyle: 'normal', fontSize: 8.6, textColor: INK, cellPadding: { top: 6.5, bottom: 6.5, left: 0, right: 8 } },
+    columnStyles: {
+      0: { font: 'Inter', fontStyle: 'medium', textColor: FAINT, cellWidth: 96 },
+      1: { font: 'Inter', fontStyle: 'semibold' },
+      2: { font: 'Inter', fontStyle: 'medium', textColor: FAINT, cellWidth: 96 },
+      3: { font: 'Inter', fontStyle: 'semibold' },
+      4: { font: 'Inter', fontStyle: 'medium', textColor: FAINT, cellWidth: 96 },
+      5: { font: 'Inter', fontStyle: 'semibold' },
+    },
     margin: { left: M, right: M },
+    didDrawCell: (d) => {
+      if (d.column.index === 0 && d.row.index < body.length)
+        rule(doc, d.cell.y + d.cell.height, HAIRX, 0.5);
+    },
   });
-  return doc.lastAutoTable.finalY + 4;
+  return doc.lastAutoTable.finalY;
 }
 
-function tableBlock(doc, y, columns, rows, label = 'DETAIL') {
-  y += 14;
-  doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...ACCENT);
-  doc.text(label, M, y);
+// Minimal "ledger": no grid, just a ruled header and light row rules. Numeric
+// columns right-aligned, the status carries a small colour dot, and off days
+// (weekly off / holiday / leave) are quietly muted so worked days stand out.
+function detailTable(doc, y, columns, rows, { label = 'Day by day', statusCol = 1, numCols = [], widths = {}, compact = false } = {}) {
+  y += compact ? 22 : 28;
+  y = eyebrow(doc, y, label) + 9;
+  const colStyles = {};
+  numCols.forEach((i) => { colStyles[i] = { halign: 'right' }; });
+  Object.entries(widths).forEach(([i, w]) => { colStyles[i] = { ...(colStyles[i] || {}), cellWidth: w }; });
+  if (statusCol >= 0) colStyles[statusCol] = { ...(colStyles[statusCol] || {}), cellPadding: { top: 7, bottom: 7, left: 12, right: 5 } };
   autoTable(doc, {
-    startY: y + 7, head: [columns], body: rows, theme: 'grid',
-    headStyles: { fillColor: [243, 241, 250], textColor: ACCENT, fontStyle: 'bold', fontSize: 7.4, lineColor: HAIR, lineWidth: 0.5, cellPadding: 5 },
-    styles: { fontSize: 8.2, cellPadding: 4.5, textColor: INK, lineColor: [237, 236, 243], lineWidth: 0.5, overflow: 'linebreak', valign: 'middle' },
-    alternateRowStyles: { fillColor: [250, 249, 252] },
-    margin: { left: M, right: M, top: M, bottom: M + 16 },
+    startY: y, head: [columns], body: rows, theme: 'plain',
+    headStyles: { font: 'Inter', fontStyle: 'semibold', fontSize: 6.8, textColor: FAINT, cellPadding: { top: 0, bottom: 8, left: 5, right: 5 }, halign: 'left' },
+    styles: { font: 'Inter', fontStyle: 'normal', fontSize: 8.3, textColor: INK, cellPadding: { top: 7, bottom: 7, left: 5, right: 5 }, overflow: 'linebreak', valign: 'middle', lineWidth: 0 },
+    columnStyles: colStyles,
+    margin: { left: M, right: M, bottom: M + 30 },
+    didParseCell: (d) => {
+      if (d.section === 'head') { d.cell.text = d.cell.text.map((t) => t.toUpperCase()); d.cell.styles.charSpace = 0.6; }
+      if (d.section === 'body') {
+        const st = d.row.raw[statusCol];
+        if (OFF.has(st)) d.cell.styles.textColor = SOFT;
+        if (d.column.index === statusCol) d.cell.styles.fontStyle = 'medium';
+        if (numCols.includes(d.column.index)) d.cell.styles.textColor = OFF.has(st) ? FAINT : INK;
+        if (d.column.index === 0) d.cell.styles.fontStyle = 'semibold';
+      }
+    },
+    didDrawCell: (d) => {
+      if (d.section === 'head' && d.column.index === 0) rule(doc, d.cell.y + d.cell.height, HAIR, 0.7);
+      if (d.section === 'body' && d.column.index === 0) rule(doc, d.cell.y + d.cell.height, HAIRX, 0.5);
+      if (d.section === 'body' && d.column.index === statusCol) {
+        const st = d.row.raw[statusCol];
+        const c = STATUS_COLOR[st];
+        if (c) { doc.setFillColor(...c); doc.circle(d.cell.x + 5.5, d.cell.y + d.cell.height / 2, 2.1, 'F'); }
+      }
+    },
   });
-  return doc.lastAutoTable.finalY + 12;
+  return doc.lastAutoTable.finalY;
 }
 
-export async function downloadReportPDF({ title, subtitle, metaLine, fileName, figures, columns, rows, legend = [], sections }) {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-  const logo = await logoPng();
-
-  let y = letterhead(doc, logo, { title, subtitle, metaLine });
-  if (figures?.length) y = summaryBlock(doc, y, figures, sections?.length ? 'OVERALL SUMMARY' : 'SUMMARY');
-
-  if (sections?.length) {
-    // One section (employee) per fresh page: heading + their summary + their detail.
-    sections.forEach((s) => {
-      doc.addPage(); y = M;
-      doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(...INK);
-      doc.text(s.heading, M, y); y += 14;
-      if (s.subLine) { doc.setFont('helvetica', 'normal').setFontSize(9.5).setTextColor(...MUTE); doc.text(s.subLine, M, y); y += 4; }
-      if (s.figures?.length) y = summaryBlock(doc, y, s.figures);
-      if (s.columns?.length) y = tableBlock(doc, y, s.columns, s.rows);
-    });
-  } else if (columns?.length) {
-    y = tableBlock(doc, y, columns, rows);
-  }
-
-  if (legend.length) {
-    if (y > H - 110) { doc.addPage(); y = M; }
-    y += 6;
-    doc.setFont('helvetica', 'bold').setFontSize(8).setTextColor(...ACCENT);
-    doc.text('HOW TO READ THIS', M, y); y += 13;
-    doc.setFont('helvetica', 'normal').setFontSize(8.6).setTextColor(...MUTE);
-    legend.forEach((line) => {
-      const wrapped = doc.splitTextToSize(line, W - 2 * M);
-      if (y + wrapped.length * 11 > H - M) { doc.addPage(); y = M; }
-      doc.text(wrapped, M, y); y += wrapped.length * 11 + 3;
-    });
-  }
-
+function footers(doc, subjectName) {
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
-    doc.setDrawColor(...HAIR).setLineWidth(0.5).line(M, H - 28, W - M, H - 28);
-    doc.setFont('helvetica', 'normal').setFontSize(7.4).setTextColor(165, 165, 175);
-    doc.text('HaseebMadeit · Attendance OS', M, H - 17);
-    doc.text(`Page ${i} of ${pages}`, W - M, H - 17, { align: 'right' });
+    rule(doc, A4.h - 34, HAIR, 0.5);
+    set(doc, 'semibold', 7.4, SOFT);
+    doc.text('HaseebMadeit', M, A4.h - 22);
+    const wb = doc.getTextWidth('HaseebMadeit');
+    set(doc, 'normal', 7.4, FAINT);
+    doc.text('Attendance OS', M + wb + 7, A4.h - 22);
+    doc.text(`${subjectName}    ·    ${i} / ${pages}`, A4.w - M, A4.h - 22, { align: 'right' });
+  }
+}
+
+function legendBlock(doc, y, legend) {
+  if (!legend?.length) return y;
+  if (y > A4.h - 150) { doc.addPage(); y = M - 28; }
+  y += 30;
+  y = eyebrow(doc, y, 'Notes') + 12;
+  set(doc, 'normal', 8.6, SOFT);
+  legend.forEach((line) => {
+    const wrapped = doc.splitTextToSize(line, A4.w - 2 * M);
+    if (y + wrapped.length * 12 > A4.h - M) { doc.addPage(); y = M; }
+    doc.text(wrapped, M, y, { lineHeightFactor: 1.4 });
+    y += wrapped.length * 12 + 4;
+  });
+  return y;
+}
+
+export async function downloadReportPDF({ fileName, kicker, subject, sub, generated, hero = [], figures = [], detail, roster, sections, legend = [] }) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  registerFonts(doc);
+  doc.setFont('Inter', 'normal');
+  const logo = await logoPng();
+  const gen = generated || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    '  ·  ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  let y = mastheadTop(doc, logo, `Generated ${gen}`);
+  y = subjectBlock(doc, y, { kicker, subject, sub });
+  y = heroBand(doc, y, hero);
+  if (figures.length) y = summaryGrid(doc, y, figures, sections?.length ? 'Overall summary' : 'Summary');
+  if (roster) y = detailTable(doc, y, roster.columns, roster.rows, { label: 'Roster', statusCol: -1, numCols: roster.numCols || [], widths: roster.widths || {} });
+  if (detail) y = detailTable(doc, y, detail.columns, detail.rows, { label: 'Day by day', statusCol: detail.statusCol ?? 1, numCols: detail.numCols || [], widths: detail.widths || {} });
+
+  if (sections?.length) {
+    sections.forEach((s) => {
+      doc.addPage();
+      let py = subjectBlock(doc, M - 26, { kicker: s.kicker, subject: s.subject, sub: s.sub }, true);
+      py = heroBand(doc, py, s.hero || []);
+      if (s.figures?.length) py = summaryGrid(doc, py, s.figures);
+      if (s.detail) detailTable(doc, py, s.detail.columns, s.detail.rows, { label: 'Day by day', statusCol: s.detail.statusCol ?? 1, numCols: s.detail.numCols || [], widths: s.detail.widths || {}, compact: true });
+    });
   }
 
+  legendBlock(doc, y, legend);
+  footers(doc, subject);
   doc.save(`${(fileName || 'report').replace(/[\\/:*?"<>|]+/g, '-')}.pdf`);
 }
