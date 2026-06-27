@@ -26,7 +26,9 @@ export function withAutoCheckout(row, now = Date.now()) {
     last_out: row.scheduled_out,
     worked_minutes: worked,
     overtime_minutes: 0,
-    status: 'Present',
+    // A holiday volunteer keeps their bonus label when auto-closed; everyone else
+    // becomes a normal Present.
+    status: row.status === 'HolidayWorked' ? 'HolidayWorked' : 'Present',
     auto_out: true,
   };
 }
