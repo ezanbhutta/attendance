@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { fmtTime, minutesToHM, fmtDate, todayISO, daysAgoISO } from '../lib/format';
 import { downloadCSV } from '../lib/csv';
-import { Download, FileText, UserCheck, UserX, Clock, Plane, Timer, TrendingUp, Gift } from 'lucide-react';
+import { Download, FileText, UserCheck, UserX, Clock, Plane, Timer, TrendingUp, Gift, Hourglass } from 'lucide-react';
 import { Card, Field, Table, Badge, ErrorBanner, Stat } from '../components/ui.jsx';
 import DateRangePicker from '../components/DateRangePicker.jsx';
 import { withAutoCheckout } from '../lib/attendance';
@@ -20,6 +20,9 @@ const empName = (r) => r.employee?.trim() || `${r.first_name ?? ''} ${r.last_nam
 const hmS = (m) => (m == null ? '—' : m < 60 ? `${m}m` : minutesToHM(m));   // compact sub-hour
 const wd = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
 const pct = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : '—');
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const hdMins = (h) => Math.max(0, toMin(h.to_time) - toMin(h.from_time));   // absent window
+const nextDayOf = (d) => { const [y, m, da] = d.split('-').map(Number); const x = new Date(y, m - 1, da + 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
 const REPORTS_LEGEND = [
   'Present — scanned in (and out). Incomplete — scanned in but never out. Absent — a working day with no scan.',
   'Late — first scan after the shift start plus grace. Overtime — time scanned out past the shift end.',
@@ -45,36 +48,59 @@ export default function Reports() {
     supabase.from('v_report_daily').select('*')
       .gte('work_date', from).lte('work_date', to)
       .order('work_date', { ascending: false }).order('emp_code'), [from, to]);
+  const leaves = useQuery(() => supabase.from('leaves').select('employee_id,start_date,end_date,status,paid'), []);
+  const halfdays = useQuery(() => supabase.from('half_days').select('employee_id,the_date,from_time,to_time,paid'), []);
 
   const shiftBy = useMemo(() => {
     const m = {};
     (emps.data ?? []).forEach((e) => { m[e.id] = e.shift?.name ?? null; });
     return m;
   }, [emps.data]);
+  const halfByKey = useMemo(() => {
+    const m = {}; (halfdays.data ?? []).forEach((h) => { m[`${h.employee_id}|${h.the_date}`] = h; }); return m;
+  }, [halfdays.data]);
+  const leavesByEmp = useMemo(() => {
+    const m = {}; (leaves.data ?? []).forEach((l) => { (m[l.employee_id] ||= []).push(l); }); return m;
+  }, [leaves.data]);
+  // A Leave-status day is paid unless its matching leave record is marked unpaid
+  // (checking the next day too, for a night shift's Leave on the previous date).
+  const leaveIsPaid = (r) => {
+    const list = leavesByEmp[r.employee_id] || [];
+    const within = (l, d) => d >= l.start_date && d <= (l.end_date || l.start_date);
+    const l = list.find((x) => within(x, r.work_date)) || list.find((x) => within(x, nextDayOf(r.work_date)));
+    return l ? l.paid : true;
+  };
 
-  // Attach shift, then apply all filters. "Late" status = any positive late mins.
+  // Attach shift + the half-day overlay, then apply all filters. A half day keeps
+  // its status but its worked hours are reduced by the absent window.
   const rows = useMemo(() => {
     const countedIds = new Set((emps.data ?? []).filter((e) => e.track_attendance).map((e) => e.id));
     return (report.data ?? [])
       .map((r) => ({ ...r, shift: shiftBy[r.employee_id] ?? null }))
       .filter((r) => countedIds.has(r.employee_id))   // gate-only (CEO/Admin) never in reports
       .map((r) => withAutoCheckout(r))
+      .map((r) => {
+        const h = halfByKey[`${r.employee_id}|${r.work_date}`];
+        if (!h) return r;
+        return { ...r, half: true, half_paid: h.paid, worked_minutes: r.worked_minutes != null ? Math.max(0, r.worked_minutes - hdMins(h)) : r.worked_minutes };
+      })
       .filter((r) => !dept || r.department === dept)
       .filter((r) => !shift || r.shift === shift)
       .filter((r) => !emp || String(r.employee_id) === String(emp))
       .filter((r) => !stat || (stat === 'Late' ? (r.late_minutes ?? 0) > 0 : r.status === stat));
-  }, [report.data, emps.data, shiftBy, dept, shift, emp, stat]);
+  }, [report.data, emps.data, shiftBy, halfByKey, dept, shift, emp, stat]);
 
   const totals = useMemo(() => rows.reduce((a, r) => {
     if (r.status === 'Present') a.present++;
     else if (r.status === 'Absent') a.absent++;
-    else if (r.status === 'Leave') a.leave++;
+    else if (r.status === 'Leave') { a.leave++; if (leaveIsPaid(r)) a.paidLeave++; else a.unpaidLeave++; }
     else if (r.status === 'HolidayWorked') a.bonus++;
     if ((r.late_minutes ?? 0) > 0) a.late++;
+    if (r.half) a.half++;
     a.worked += r.worked_minutes ?? 0;
     a.ot += r.overtime_minutes ?? 0;
     return a;
-  }, { present: 0, absent: 0, leave: 0, bonus: 0, late: 0, worked: 0, ot: 0 }), [rows]);
+  }, { present: 0, absent: 0, leave: 0, bonus: 0, late: 0, worked: 0, ot: 0, half: 0, paidLeave: 0, unpaidLeave: 0 }), [rows, leavesByEmp]);
 
   const grouped = useMemo(() => {
     const keyFn = view === 'employee' ? (r) => r.employee_id
@@ -86,20 +112,21 @@ export default function Reports() {
     const g = new Map();
     for (const r of rows) {
       const k = keyFn(r);
-      if (!g.has(k)) g.set(k, { label: labelFn(r), code: r.emp_code, present: 0, absent: 0, leave: 0, incomplete: 0, bonus: 0, late: 0, lateMin: 0, worked: 0, ot: 0 });
+      if (!g.has(k)) g.set(k, { label: labelFn(r), code: r.emp_code, present: 0, absent: 0, leave: 0, incomplete: 0, bonus: 0, late: 0, lateMin: 0, worked: 0, ot: 0, half: 0, paidLeave: 0, unpaidLeave: 0 });
       const x = g.get(k);
       if (r.status === 'Present') x.present++;
       else if (r.status === 'Absent') x.absent++;
-      else if (r.status === 'Leave') x.leave++;
+      else if (r.status === 'Leave') { x.leave++; if (leaveIsPaid(r)) x.paidLeave++; else x.unpaidLeave++; }
       else if (r.status === 'Incomplete') x.incomplete++;
       else if (r.status === 'HolidayWorked') x.bonus++;
       if ((r.late_minutes ?? 0) > 0) x.late++;
+      if (r.half) x.half++;
       x.lateMin += r.late_minutes ?? 0;
       x.worked += r.worked_minutes ?? 0;
       x.ot += r.overtime_minutes ?? 0;
     }
     return [...g.values()].sort((a, b) => String(a.label).localeCompare(String(b.label)));
-  }, [rows, view]);
+  }, [rows, view, leavesByEmp]);
 
   const detailedCols = [
     { key: 'work_date', label: 'Date', render: (r) => fmtDate(r.work_date), csv: (r) => r.work_date },
@@ -112,7 +139,7 @@ export default function Reports() {
     { key: 'late_minutes', label: 'Late', num: true, render: (r) => minutesToHM(r.late_minutes), csv: (r) => r.late_minutes },
     { key: 'worked_minutes', label: 'Worked', num: true, render: (r) => minutesToHM(r.worked_minutes), csv: (r) => r.worked_minutes },
     { key: 'overtime_minutes', label: 'OT', num: true, render: (r) => minutesToHM(r.overtime_minutes), csv: (r) => r.overtime_minutes },
-    { key: 'status', label: 'Status', render: (r) => <Badge value={r.status} />, csv: (r) => r.status },
+    { key: 'status', label: 'Status', render: (r) => <><Badge value={r.status} />{r.half && <span className="auto-tag">half day</span>}</>, csv: (r) => (r.half ? `${r.status} (half day)` : r.status) },
   ];
   const groupCols = [
     { key: 'label', label: view === 'employee' ? 'Employee' : view === 'department' ? 'Department' : 'Shift' },
@@ -120,6 +147,9 @@ export default function Reports() {
     { key: 'absent', label: 'Absent', num: true },
     { key: 'incomplete', label: 'Incomplete', num: true },
     { key: 'leave', label: 'Leave', num: true },
+    { key: 'paidLeave', label: 'Paid lv', num: true },
+    { key: 'unpaidLeave', label: 'Unpaid lv', num: true },
+    { key: 'half', label: 'Half days', num: true },
     { key: 'bonus', label: 'H.bonus', num: true },
     { key: 'attendance', label: 'Attendance', num: true,
       render: (r) => { const s = r.present + r.incomplete + r.absent; return s ? `${Math.round(((r.present + r.incomplete) / s) * 100)}%` : '—'; },
@@ -162,12 +192,14 @@ export default function Reports() {
       { label: 'Present', value: totals.present, color: [21, 145, 83] },
       { label: 'Absent', value: totals.absent, color: [206, 44, 49] },
       { label: 'Leave', value: totals.leave, color: [40, 102, 222] },
+      { label: 'Half', value: totals.half, color: [176, 106, 11] },
       { label: 'Bonus', value: totals.bonus, color: [114, 41, 255] },
     ];
     const figures = [
       ['Records', isDetailed ? rows.length : `${grouped.length} group${grouped.length === 1 ? '' : 's'}`],
       ['Present', totals.present], ['Absent', totals.absent], ['Late', totals.late],
-      ['On leave', totals.leave], ['Holiday bonus', totals.bonus],
+      ['On leave', totals.leave], ['Paid leave', totals.paidLeave], ['Unpaid leave', totals.unpaidLeave],
+      ['Half days', totals.half], ['Holiday bonus', totals.bonus],
       ['Total worked', minutesToHM(totals.worked)], ['Total overtime', minutesToHM(totals.ot)],
       ['Date range', rangeLabel],
     ];
@@ -198,16 +230,16 @@ export default function Reports() {
           widths: { 0: 96, 1: 32, 2: 104, 3: 86, 4: 82, 5: 42, 6: 42, 7: 46, 8: 54, 9: 44 } } });
     } else {
       const groupHead = view === 'employee' ? 'Employee' : view === 'department' ? 'Department' : 'Shift';
-      const columns = [groupHead, 'Present', 'Absent', 'Incomplete', 'Leave', 'Bonus', 'Attendance', 'On time', 'Late days', 'Worked', 'Overtime'];
+      const columns = [groupHead, 'Present', 'Absent', 'Leave', 'Paid lv', 'Unpaid lv', 'Half', 'Bonus', 'Att %', 'On-time %', 'Late', 'Worked', 'OT'];
       const pdfRows = grouped.map((g) => {
         const att = g.present + g.incomplete + g.absent, att2 = g.present + g.incomplete;
-        return [g.label, g.present, g.absent, g.incomplete, g.leave, g.bonus,
-          pct(g.present + g.incomplete, att), att2 ? pct(att2 - g.late, att2) : '—',
+        return [g.label, g.present, g.absent, g.leave, g.paidLeave, g.unpaidLeave, g.half, g.bonus,
+          pct(att2, att), att2 ? pct(att2 - g.late, att2) : '—',
           g.late, minutesToHM(g.worked), minutesToHM(g.ot)];
       });
       downloadReportPDF({ ...common,
         roster: { label: viewLabel, columns, rows: pdfRows, statusCol: -1,
-          numCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], widths: { 0: 140 } } });
+          numCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], widths: { 0: 130 } } });
     }
   }
 
@@ -273,7 +305,8 @@ export default function Reports() {
         <Stat icon={UserCheck} tone="ok" label="Present" value={totals.present} />
         <Stat icon={UserX} tone="danger" label="Absent" value={totals.absent} />
         <Stat icon={Clock} tone="warn" label="Late" value={totals.late} />
-        <Stat icon={Plane} tone="sky" label="On leave" value={totals.leave} />
+        <Stat icon={Plane} tone="sky" label="On leave" value={totals.leave} hint={totals.leave ? `${totals.paidLeave} paid · ${totals.unpaidLeave} unpaid` : ''} />
+        {totals.half > 0 && <Stat icon={Hourglass} tone="warn" label="Half days" value={totals.half} hint="part-day absent" />}
         {totals.bonus > 0 && <Stat icon={Gift} tone="ok" label="Holiday bonus" value={totals.bonus} hint="bonus day(s)" />}
         <Stat icon={Timer} tone="violet" label="Worked" value={minutesToHM(totals.worked)} />
         <Stat icon={TrendingUp} tone="violet" label="Overtime" value={minutesToHM(totals.ot)} />
