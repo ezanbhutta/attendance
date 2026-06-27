@@ -221,13 +221,60 @@ export default function Statement() {
   const PDF_COLS = ['Date', 'Status', 'In', 'Out', 'Worked', 'Late', 'OT', 'Remarks'];
   const PDF_NUM = [2, 3, 4, 5, 6];
   const PDF_W = { 0: 68, 1: 88, 2: 38, 3: 38, 4: 50, 5: 44, 6: 44 };
-  const heroOf = (s) => [
-    { value: s.attendanceRate == null ? '—' : `${s.attendanceRate}%`, label: 'Attendance' },
-    { value: s.ontimeRate == null ? '—' : `${s.ontimeRate}%`, label: 'On-time' },
-    { value: String(s.presentTotal), label: 'Days present' },
-    { value: minutesToHM(s.worked), label: 'Total worked' },
-  ];
   const subOf = (e) => `PIN ${e.emp_code}${e.department?.name ? `  ·  ${e.department.name}` : ''}${e.shift?.name ? `  ·  ${e.shift.name}` : ''}`;
+  const C = { green: [21, 145, 83], red: [206, 44, 49], amber: [176, 106, 11], blue: [40, 102, 222], violet: [114, 41, 255], grey: [150, 149, 161] };
+  const cardsOf = (s) => [
+    { value: s.presentTotal, label: 'Present', tone: 'green' },
+    { value: s.absent, label: 'Absent', tone: 'red' },
+    { value: s.lateDays, label: 'Late days', tone: 'amber' },
+    { value: s.leave, label: 'On leave', tone: 'blue' },
+    { value: minutesToHM(s.worked), label: 'Worked', tone: 'neutral' },
+  ];
+  const ringOf = (s) => ({ pct: s.attendanceRate ?? 0, label: 'Attendance' });
+  const distOf = (s) => [
+    { label: 'Present', value: s.presentTotal, color: C.green },
+    { label: 'Absent', value: s.absent, color: C.red },
+    { label: 'Leave', value: s.leave, color: C.blue },
+    { label: 'Off', value: s.off + s.holiday, color: C.grey },
+    { label: 'Bonus', value: s.bonus, color: C.violet },
+  ];
+  const listJoin = (a) => (a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+  function personNarrative(name, s, range) {
+    const o = [];
+    o.push(s.scheduled
+      ? `${name} attended ${s.presentTotal} of ${s.scheduled} scheduled working day${s.scheduled === 1 ? '' : 's'} (${s.attendanceRate}%) over ${range}.`
+      : `${name} had no scheduled working days over ${range}.`);
+    if (s.presentTotal) {
+      o.push(s.lateDays === 0
+        ? 'They were on time on every day they attended.'
+        : `They were late ${s.lateDays} time${s.lateDays === 1 ? '' : 's'} (${minutesToHM(s.lateMin)} in total) — on time on ${s.ontimeRate}% of attended days.`);
+      o.push(`They worked ${minutesToHM(s.worked)}${s.overtime > 0 ? `, including ${minutesToHM(s.overtime)} of overtime` : ''}, averaging ${minutesToHM(s.avgWorked)} a day.`);
+    }
+    const bits = [];
+    if (s.absent) bits.push(`${s.absent} absence${s.absent === 1 ? '' : 's'}`);
+    if (s.leave) bits.push(`${s.leave} day${s.leave === 1 ? '' : 's'} of approved leave`);
+    if (s.incomplete) bits.push(`${s.incomplete} day${s.incomplete === 1 ? '' : 's'} without a scan-out`);
+    if (s.bonus) bits.push(`${s.bonus} holiday${s.bonus === 1 ? '' : 's'} worked for a bonus`);
+    if (bits.length) o.push(`Also on record: ${listJoin(bits)}.`);
+    if (s.attendanceRate != null) {
+      o.push(s.attendanceRate >= 95 && (s.ontimeRate ?? 0) >= 90 ? 'Overall, an excellent record — consistently present and punctual.'
+        : s.attendanceRate >= 90 ? 'Overall, a strong and reliable record.'
+        : s.attendanceRate >= 75 ? 'Overall, a fair record, with room to improve attendance or punctuality.'
+        : 'Overall, attendance needs attention.');
+    }
+    return o.join(' ');
+  }
+  function groupNarrative(label, count, s, range) {
+    const o = [`Across ${count} ${count === 1 ? 'person' : 'people'} in ${label}, attendance averaged ${s.attendanceRate == null ? '—' : `${s.attendanceRate}%`} over ${range} — ${s.presentTotal} of ${s.scheduled} scheduled days attended.`];
+    const bits = [];
+    if (s.lateDays) bits.push(`${s.lateDays} late arrival${s.lateDays === 1 ? '' : 's'}`);
+    if (s.absent) bits.push(`${s.absent} absence${s.absent === 1 ? '' : 's'}`);
+    if (s.leave) bits.push(`${s.leave} leave day${s.leave === 1 ? '' : 's'}`);
+    if (s.bonus) bits.push(`${s.bonus} holiday bonus day${s.bonus === 1 ? '' : 's'}`);
+    if (bits.length) o.push(`The period recorded ${listJoin(bits)}, with ${minutesToHM(s.worked)} worked in total${s.overtime > 0 ? ` and ${minutesToHM(s.overtime)} of overtime` : ''}.`);
+    o.push(`On-time across attended days was ${s.ontimeRate == null ? '—' : `${s.ontimeRate}%`}.`);
+    return o.join(' ');
+  }
 
   async function buildPdf() {
     if (!people.length) return;
@@ -237,7 +284,8 @@ export default function Statement() {
         fileName: `Statement - ${scopeLabel} - ${from} to ${to}`,
         kicker: 'Attendance statement', subject: scopeLabel,
         sub: `${subOf(one.e)}  ·  ${rangeLabel}`,
-        hero: heroOf(one.s), figures: FIG(one.s),
+        ring: ringOf(one.s), hero: cardsOf(one.s), summary: personNarrative(scopeLabel, one.s, rangeLabel),
+        dist: distOf(one.s), figures: FIG(one.s),
         detail: { columns: PDF_COLS, rows: one.days.map(pdfRow), statusCol: 1, numCols: PDF_NUM, widths: PDF_W },
         legend: LEGEND,
       });
@@ -253,11 +301,13 @@ export default function Statement() {
         fileName: `${kind} - ${scopeLabel} - ${from} to ${to}`,
         kicker: `Attendance — ${kind}`, subject: scopeLabel,
         sub: `${people.length} ${people.length === 1 ? 'person' : 'people'}  ·  ${rangeLabel}`,
-        hero: heroOf(agg), figures: FIG(agg),
+        ring: ringOf(agg), hero: cardsOf(agg), summary: groupNarrative(scopeLabel, people.length, agg, rangeLabel),
+        dist: distOf(agg), figures: FIG(agg),
         roster: { columns: rosterColumns, rows: rosterData, numCols: [2, 3, 4, 5, 6, 7], widths: { 0: 150, 1: 100 } },
         sections: people.map(({ e, s, days }) => ({
           kicker: 'Employee', subject: empName(e) || `PIN ${e.emp_code}`, sub: subOf(e),
-          hero: heroOf(s), figures: FIG(s),
+          ring: ringOf(s), hero: cardsOf(s), summary: personNarrative(empName(e) || `PIN ${e.emp_code}`, s, rangeLabel),
+          dist: distOf(s), figures: FIG(s),
           detail: { columns: PDF_COLS, rows: days.map(pdfRow), statusCol: 1, numCols: PDF_NUM, widths: PDF_W },
         })),
         legend: LEGEND,

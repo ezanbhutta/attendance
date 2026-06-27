@@ -149,10 +149,19 @@ export default function Reports() {
     const { downloadReportPDF } = await import('../lib/pdf');
     const rangeLabel = `${fmtDate(from)} – ${fmtDate(to)}`;
     const hero = [
-      { value: String(totals.present), label: 'Present' },
-      { value: String(totals.absent), label: 'Absent' },
-      { value: String(totals.late), label: 'Late' },
-      { value: minutesToHM(totals.worked), label: 'Worked' },
+      { value: String(totals.present), label: 'Present', tone: 'green' },
+      { value: String(totals.absent), label: 'Absent', tone: 'red' },
+      { value: String(totals.late), label: 'Late', tone: 'amber' },
+      { value: String(totals.leave), label: 'On leave', tone: 'blue' },
+      { value: minutesToHM(totals.worked), label: 'Worked', tone: 'neutral' },
+    ];
+    const sched = totals.present + totals.absent;
+    const ring = { pct: sched ? Math.round((totals.present / sched) * 100) : 0, label: 'Attendance' };
+    const dist = [
+      { label: 'Present', value: totals.present, color: [21, 145, 83] },
+      { label: 'Absent', value: totals.absent, color: [206, 44, 49] },
+      { label: 'Leave', value: totals.leave, color: [40, 102, 222] },
+      { label: 'Bonus', value: totals.bonus, color: [114, 41, 255] },
     ];
     const figures = [
       ['Records', isDetailed ? rows.length : `${grouped.length} group${grouped.length === 1 ? '' : 's'}`],
@@ -165,7 +174,7 @@ export default function Reports() {
       fileName: `Attendance report - ${viewLabel} - ${from} to ${to}`,
       kicker: 'Attendance report', subject: viewLabel,
       sub: `${rangeLabel}${filterNote ? `  ·  ${filterNote}` : ''}`,
-      orientation: 'landscape', hero, figures, legend: REPORTS_LEGEND,
+      orientation: 'landscape', ring, hero, dist, figures, legend: REPORTS_LEGEND,
     };
     if (isDetailed) {
       const columns = ['Date', 'PIN', 'Name', 'Department', 'Shift', 'In', 'Out', 'Late', 'Worked', 'OT', 'Status'];

@@ -182,11 +182,19 @@ export default function CeoView() {
   async function buildPdf() {
     const { downloadReportPDF } = await import('../lib/pdf');
     const rangeLabel = `${fmtDate(from)} – ${fmtDate(to)}`;
+    const ring = { pct: rate, label: 'Attendance' };
     const hero = [
-      { value: `${rate}%`, label: 'Attendance' },
-      { value: String(present.length), label: isToday ? 'Present today' : 'Present' },
-      { value: String(absent.length), label: 'Absent' },
-      { value: String(counted.length), label: 'Counted staff' },
+      { value: String(present.length), label: isToday ? 'Present today' : 'Present', tone: 'green' },
+      { value: String(absent.length), label: 'Absent', tone: 'red' },
+      { value: String(late.length), label: 'Late', tone: 'amber' },
+      { value: String(leave.length), label: 'On leave', tone: 'blue' },
+      { value: String(counted.length), label: 'Counted staff', tone: 'violet' },
+    ];
+    const dist = [
+      { label: 'Present', value: present.length, color: [21, 145, 83] },
+      { label: 'Absent', value: absent.length, color: [206, 44, 49] },
+      { label: 'Leave', value: leave.length, color: [40, 102, 222] },
+      { label: 'Not due', value: upcoming.length, color: [150, 149, 161] },
     ];
     const figures = [
       ['Counted staff', counted.length], ['Days scheduled', scheduled], ['Attendance rate', `${rate}%`],
@@ -214,7 +222,7 @@ export default function CeoView() {
       fileName: `CEO overview - ${from} to ${to}`,
       kicker: 'CEO overview', subject: 'Company attendance',
       sub: `${rangeLabel}${filterNote ? `  ·  ${filterNote}` : ''}`,
-      hero, figures, tables: [deptTable, shiftTable, peopleTable],
+      ring, hero, dist, figures, tables: [deptTable, shiftTable, peopleTable],
     });
   }
 
