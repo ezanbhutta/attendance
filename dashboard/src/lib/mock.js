@@ -145,6 +145,9 @@ tweak(1, 4, { status: 'HolidayWorked', first_in: ts(dateISO(4), 10, 0), last_out
 tweak(1, 9, { status: 'Leave', first_in: null, last_out: null, late_minutes: 0, worked_minutes: null, overtime_minutes: 0 }); // Approved annual leave
 tweak(1, 8, { status: 'Leave', first_in: null, last_out: null, late_minutes: 0, worked_minutes: null, overtime_minutes: 0 }); // Approved annual leave
 tweak(1, 6, { status: 'Absent', first_in: null, last_out: null, late_minutes: 0, worked_minutes: null, overtime_minutes: 0 }); // Absent — had a pending (unapproved) sick-leave request
+// Night-shift holiday: the holiday is on dateISO(4), but a night worker's shift
+// that morning is the previous work-date, so HolidayWorked lands on dateISO(5).
+tweak(12, 5, { status: 'HolidayWorked', first_in: ts(dateISO(5), 21, 0), last_out: ts(dateISO(4), 6, 0), late_minutes: 0, worked_minutes: 8 * 60, overtime_minutes: 0 });
 
 const employees = ROSTER.map((p) => ({
   id: p.id, emp_code: code(p.id), first_name: p.first, last_name: p.last,

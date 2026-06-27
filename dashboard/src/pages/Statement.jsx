@@ -18,6 +18,7 @@ const OFF = new Set(['WeeklyOff', 'Holiday', 'Leave']);
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+const nextDay = (d) => { const [y, m, da] = d.split('-').map(Number); return iso(new Date(y, m - 1, da + 1)); };
 function daysInRange(from, to) {
   const [fy, fm, fd] = from.split('-').map(Number);
   const [ty, tm, td] = to.split('-').map(Number);
@@ -97,7 +98,12 @@ export default function Statement() {
   // The reason a day was off / any note, as a plain remark.
   const remark = (e, r) => {
     const parts = [];
-    if ((r.status === 'Holiday' || r.status === 'HolidayWorked') && holidaysByDate[r.date]) parts.push(holidaysByDate[r.date]);
+    // Night shifts get the holiday on the work-date before the calendar holiday,
+    // so fall back to the next day's holiday name to label it.
+    if (r.status === 'Holiday' || r.status === 'HolidayWorked') {
+      const hn = holidaysByDate[r.date] || holidaysByDate[nextDay(r.date)];
+      if (hn) parts.push(hn);
+    }
     if (r.status === 'HolidayWorked') parts.push('worked · bonus day');
     const lv = (leavesByEmp[e.id] ?? []).find((l) => r.date >= l.start_date && r.date <= (l.end_date || l.start_date));
     if (lv) parts.push(`${cap(lv.leave_type)} leave (${lv.status})`);
