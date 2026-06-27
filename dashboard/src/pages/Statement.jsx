@@ -105,7 +105,11 @@ export default function Statement() {
       if (hn) parts.push(hn);
     }
     if (r.status === 'HolidayWorked') parts.push('worked · bonus day');
-    const lv = (leavesByEmp[e.id] ?? []).find((l) => r.date >= l.start_date && r.date <= (l.end_date || l.start_date));
+    // Leave overlapping this work-date; for a night shift whose Leave landed on the
+    // previous work-date, fall back to the next day's leave record for the label.
+    const within = (l, d) => d >= l.start_date && d <= (l.end_date || l.start_date);
+    let lv = (leavesByEmp[e.id] ?? []).find((l) => within(l, r.date));
+    if (!lv && r.status === 'Leave') lv = (leavesByEmp[e.id] ?? []).find((l) => within(l, nextDay(r.date)));
     if (lv) parts.push(`${cap(lv.leave_type)} leave (${lv.status})`);
     if (r.status === 'WeeklyOff') parts.push('Weekly off');
     const n = plainNote(r);
