@@ -141,6 +141,9 @@ tweak(2, 5, { status: 'Present', first_in: ts(dateISO(5), 9, 5), last_out: ts(da
 tweak(8, 7, { status: 'Present', first_in: ts(dateISO(7), 8, 55), last_out: ts(dateISO(7), 22, 10), late_minutes: 0, worked_minutes: 13 * 60 + 15, overtime_minutes: 5 * 60 }); // Long shift
 tweak(10, 3, { status: 'Present', first_in: ts(dateISO(3), 10, 30), last_out: ts(dateISO(3), 15, 0), late_minutes: 0, scheduled_in: null, scheduled_out: null, worked_minutes: 4 * 60 + 30 }); // Came on day off
 tweak(1, 4, { status: 'HolidayWorked', first_in: ts(dateISO(4), 10, 0), last_out: ts(dateISO(4), 16, 0), late_minutes: 0, worked_minutes: 6 * 60 }); // Volunteered to work the holiday (bonus)
+tweak(1, 9, { status: 'Leave', first_in: null, last_out: null, late_minutes: 0, worked_minutes: null, overtime_minutes: 0 }); // Approved annual leave
+tweak(1, 8, { status: 'Leave', first_in: null, last_out: null, late_minutes: 0, worked_minutes: null, overtime_minutes: 0 }); // Approved annual leave
+tweak(1, 6, { status: 'Absent', first_in: null, last_out: null, late_minutes: 0, worked_minutes: null, overtime_minutes: 0 }); // Absent — had a pending (unapproved) sick-leave request
 
 const employees = ROSTER.map((p) => ({
   id: p.id, emp_code: code(p.id), first_name: p.first, last_name: p.last,
@@ -194,8 +197,9 @@ const F = {
   holidays: [{ id: 1, the_date: dateISO(4), name: 'Eid Holiday' }, { id: 2, the_date: '2026-08-14', name: 'Independence Day' }],
   holiday_workers: [{ the_date: dateISO(4), employee_id: 1, employee: { emp_code: code(1), first_name: 'Salman', last_name: 'Khan' } }],
   leaves: [
-    { id: 1, leave_type: 'annual', start_date: dateISO(1), end_date: dateISO(-1), status: 'approved', employee: { emp_code: '1050', first_name: 'Sana' } },
-    { id: 2, leave_type: 'sick',   start_date: TODAY,      end_date: TODAY,        status: 'pending',  employee: { emp_code: '1044', first_name: 'Bilal' } },
+    { id: 1, employee_id: 1, leave_type: 'annual', start_date: dateISO(9), end_date: dateISO(8), status: 'approved', employee: { emp_code: code(1), first_name: 'Salman' } },
+    { id: 2, employee_id: 1, leave_type: 'sick',   start_date: dateISO(6), end_date: dateISO(6), status: 'pending',  employee: { emp_code: code(1), first_name: 'Salman' } },
+    { id: 3, employee_id: 4, leave_type: 'casual', start_date: dateISO(5), end_date: dateISO(5), status: 'rejected', employee: { emp_code: code(4), first_name: 'Fatima' } },
   ],
   manual_logs: [
     { id: 1, punch_time: ts(TODAY, 9), reason: 'Scanner missed the scan, verified by lead', created_by: 'hr@haseebmadeit.com', created_at: ts(TODAY, 9, 5), employee: { emp_code: '1044', first_name: 'Bilal' } },
