@@ -92,6 +92,15 @@ export default function Employees() {
     if (error) return setErr(friendlyDelete(error));
     emps.refetch();
   }
+  // Bring every archived person back at once — recovery after an accidental
+  // archive (e.g. a partial device sync).
+  async function restoreAll() {
+    setErr(null); setNotice(null);
+    const { data, error } = await supabase.from('employees').update({ active: true }).eq('active', false).select('id');
+    if (error) return setErr(error);
+    setNotice(`Restored ${(data ?? []).length} ${(data ?? []).length === 1 ? 'person' : 'people'}. They are counted again — press Sync to pull today's scans.`);
+    emps.refetch();
+  }
 
   const deptOpts = depts.data ?? [];
   const shiftOpts = shifts.data ?? [];
@@ -141,6 +150,11 @@ export default function Employees() {
             <button className={!archived ? 'active' : ''} onClick={() => setArchived(false)}>Active ({activeCount})</button>
             <button className={archived ? 'active' : ''} onClick={() => setArchived(true)}>Archived ({archivedCount})</button>
           </div>
+          {archived && archivedCount > 0 && (
+            <button className="btn sm" onClick={restoreAll} title="Bring everyone in the Archived list back to Active">
+              <RotateCcw size={14} /> Restore all ({archivedCount})
+            </button>
+          )}
           <span className="count-pill">{rows.length} {rows.length === 1 ? 'person' : 'people'}</span>
         </div>
         <Table

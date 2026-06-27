@@ -113,9 +113,17 @@ function createStore(config) {
       const { data: maps, error } = await supabase
         .from('device_user_map').select('employee_id,pin').eq('device_sn', deviceSn);
       if (error) throw new Error(error.message);
-      const goneIds = (maps || []).filter((m) => !seen.has(String(m.pin)) && m.employee_id)
-        .map((m) => m.employee_id);
+      const mapped = (maps || []).filter((m) => m.employee_id);
+      const seenMapped = mapped.filter((m) => seen.has(String(m.pin))).length;
+      const goneIds = mapped.filter((m) => !seen.has(String(m.pin))).map((m) => m.employee_id);
       if (!goneIds.length) return 0;
+      // Safety: a sync that would archive MORE people than it actually saw is almost
+      // certainly a partial upload (a network hiccup, or the device mid-reset), not a
+      // genuine mass removal. Refuse — one bad sync must never wipe the roster.
+      if (goneIds.length > seenMapped) {
+        log.warn(`archive-missing: sync saw ${seenMapped} mapped user(s) but ${goneIds.length} would be archived — treating as a partial upload, skipping`);
+        return 0;
+      }
       const { data: upd, error: uErr } = await supabase.from('employees')
         .update({ active: false }).in('id', goneIds).neq('active', false).select('id');
       if (uErr) throw new Error(uErr.message);
