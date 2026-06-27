@@ -195,6 +195,7 @@ export default function Reports() {
         </div>
       </Card>
 
+      <div className="print-section">Summary</div>
       <div className="report-summary">
         <Stat icon={UserCheck} tone="ok" label="Present" value={totals.present} />
         <Stat icon={UserX} tone="danger" label="Absent" value={totals.absent} />

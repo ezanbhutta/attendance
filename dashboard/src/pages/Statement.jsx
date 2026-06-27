@@ -192,6 +192,7 @@ export default function Statement() {
 
       <p className="page-intro" style={{ marginTop: -4 }}>{personLine}</p>
 
+      <div className="print-section">Summary</div>
       <div className="report-summary">
         <Stat icon={UserCheck} tone="ok" label="Present" value={presentTotal} hint={attendanceRate == null ? '' : `${attendanceRate}% attendance`} />
         <Stat icon={UserX} tone="danger" label="Absent" value={s.absent} />

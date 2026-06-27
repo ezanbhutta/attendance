@@ -481,24 +481,56 @@ th.sorted{color:var(--text)}
 .spark-line{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;opacity:.9}
 .spark-line.ok{stroke:var(--ok)} .spark-line.danger{stroke:var(--danger)} .spark-line.warn{stroke:var(--warn)} .spark-line.sky{stroke:var(--sky)} .spark-line.violet{stroke:var(--accent)}
 
-/* Print only letterhead: hidden on screen, shown only when printing. */
-.print-header{display:none}
+/* Print-only elements: hidden on screen, shown only when printing. */
+.print-header,.print-only,.print-section{display:none}
 
-/* ─── Print (save as PDF report export): always light ──────────────────── */
+/* ─── Print (save as PDF report export): always light, carefully composed ─ */
 @media print{
-  :root{--text:#15141b;--muted:#5b5a66;--dim:#8c8b96;--border:#e2e1ea;--surface:#fff;--surface-2:#f6f5fa;--hairline:#eeedf4}
-  body{background:#fff!important}
-  .sidebar,.topbar,.no-print,.scrim,.drawer,.drawer-scrim{display:none!important}
+  :root{--text:#15141b;--muted:#5b5a66;--dim:#8c8b96;--border:#d9d8e2;--surface:#fff;--surface-2:#f7f6fb;--hairline:#ededf3}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff!important;color:var(--text)}
+  .sidebar,.topbar,.topnav,.no-print,.scrim,.drawer,.drawer-scrim,.page-title{display:none!important}
   .shell{display:block}.content{max-width:none;padding:0}
-  .card,.stat{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
-  .print-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:12px;margin-bottom:18px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .print-header .ph-brand{display:flex;align-items:center;gap:10px}
-  .print-header .ph-name{font-weight:700;font-size:1rem}
-  .print-header .ph-sub{font-size:.55rem;text-transform:uppercase;letter-spacing:.2em;color:var(--accent);font-weight:700}
-  .print-header .ph-h{font-weight:700;font-size:1.15rem}
-  .print-header .ph-s{color:#555;font-size:.85rem;margin-top:2px}
-  .print-header .ph-date{font-size:.72rem;color:#666;text-align:right;white-space:nowrap}
-  th{position:static;background:#f4f2fa!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  table{font-size:11px}.badge,.trend-bar{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{margin:14mm}
+  .print-only{display:block!important}
+
+  /* ── Letterhead ──────────────────────────────────────────────────────── */
+  .print-header{display:block;margin:0 0 22px}
+  .print-header .ph-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:2.5px solid var(--accent)}
+  .print-header .ph-brand{display:flex;align-items:center;gap:12px}
+  .print-header .ph-brand svg{border-radius:9px}
+  .print-header .ph-name{font-weight:800;font-size:1.12rem;letter-spacing:-.012em;line-height:1}
+  .print-header .ph-sub{font-size:.58rem;text-transform:uppercase;letter-spacing:.24em;color:var(--accent);font-weight:700;margin-top:4px}
+  .print-header .ph-gen{font-size:.72rem;color:#666;text-align:right;line-height:1.4;letter-spacing:.03em}
+  .print-header .ph-gen span{display:block;text-transform:uppercase;letter-spacing:.16em;font-size:.55rem;color:#9a99a6;margin-bottom:1px}
+  .print-header .ph-title{padding-top:15px}
+  .print-header .ph-h{font-family:var(--disp);font-weight:600;font-size:1.6rem;letter-spacing:-.018em;line-height:1.08}
+  .print-header .ph-s{color:#555;font-size:.92rem;margin-top:5px}
+
+  /* Print-only section label */
+  .print-section{display:block!important;font-family:var(--mono);font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.18em;color:var(--accent);margin:14px 0 10px}
+  .page-intro{margin-top:6px}
+
+  /* ── Cards & tables ──────────────────────────────────────────────────── */
+  .card{box-shadow:none;border:1px solid var(--border);border-radius:9px;break-inside:auto;margin-bottom:16px}
+  .card-head{padding:12px 16px}.card-head h2{font-size:.95rem}
+  .card-body{padding:14px 16px}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+  th{position:static;background:#f3f1fa!important;font-size:.6rem;letter-spacing:.06em}
+  table{font-size:10.5px}
+  td{padding:6px 10px!important}
+
+  /* ── Summary tiles → an even, compact band ───────────────────────────── */
+  .report-summary{grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:9px;margin-bottom:20px}
+  .stat{gap:5px;padding:12px 14px;border:1px solid var(--border);border-radius:9px;break-inside:avoid;box-shadow:none}
+  .stat .value{font-size:1.4rem}
+  .stat .label{font-size:.56rem}
+  .stat .spark,.stat .stat-bar{display:none}
+
+  /* ── Key figures (Statement) ─────────────────────────────────────────── */
+  .keyfig{grid-template-columns:repeat(3,1fr);gap:0 26px}
+  .keyfig>div{padding:6px 0}
+  .help-section li{margin:5px 0;font-size:.85rem}
+
+  @page{margin:13mm 13mm 16mm}
 }
