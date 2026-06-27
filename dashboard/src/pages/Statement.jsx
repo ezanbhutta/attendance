@@ -221,7 +221,9 @@ export default function Statement() {
   const PDF_COLS = ['Date', 'Status', 'In', 'Out', 'Worked', 'Late', 'OT', 'Remarks'];
   const PDF_NUM = [2, 3, 4, 5, 6];
   const PDF_W = { 0: 68, 1: 88, 2: 38, 3: 38, 4: 50, 5: 44, 6: 44 };
-  const subOf = (e) => `PIN ${e.emp_code}${e.department?.name ? `  ·  ${e.department.name}` : ''}${e.shift?.name ? `  ·  ${e.shift.name}` : ''}`;
+  const subOf = (e) => `PIN ${e.emp_code}  ·  ${e.department?.name || 'No department'}  ·  ${e.shift?.name || 'No shift'}`;
+  // Identity shown as labelled figures so the name / department / shift are unmistakable.
+  const idFigs = (e) => [['Department', e.department?.name || '—'], ['Shift', e.shift?.name || '—'], ['PIN', e.emp_code]];
   const C = { green: [21, 145, 83], red: [206, 44, 49], amber: [176, 106, 11], blue: [40, 102, 222], violet: [114, 41, 255], grey: [150, 149, 161] };
   const cardsOf = (s) => [
     { value: s.presentTotal, label: 'Present', tone: 'green' },
@@ -285,7 +287,7 @@ export default function Statement() {
         kicker: 'Attendance statement', subject: scopeLabel,
         sub: `${subOf(one.e)}  ·  ${rangeLabel}`,
         ring: ringOf(one.s), hero: cardsOf(one.s), summary: personNarrative(scopeLabel, one.s, rangeLabel),
-        dist: distOf(one.s), figures: FIG(one.s),
+        dist: distOf(one.s), figures: [...idFigs(one.e), ...FIG(one.s)],
         detail: { columns: PDF_COLS, rows: one.days.map(pdfRow), statusCol: 1, numCols: PDF_NUM, widths: PDF_W },
         legend: LEGEND,
       });
@@ -307,7 +309,7 @@ export default function Statement() {
         sections: people.map(({ e, s, days }) => ({
           kicker: 'Employee', subject: empName(e) || `PIN ${e.emp_code}`, sub: subOf(e),
           ring: ringOf(s), hero: cardsOf(s), summary: personNarrative(empName(e) || `PIN ${e.emp_code}`, s, rangeLabel),
-          dist: distOf(s), figures: FIG(s),
+          dist: distOf(s), figures: [...idFigs(e), ...FIG(s)],
           detail: { columns: PDF_COLS, rows: days.map(pdfRow), statusCol: 1, numCols: PDF_NUM, widths: PDF_W },
         })),
         legend: LEGEND,

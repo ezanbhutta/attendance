@@ -18,6 +18,7 @@ const VIEWS = [
 
 const empName = (r) => r.employee?.trim() || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim();
 const hmS = (m) => (m == null ? '—' : m < 60 ? `${m}m` : minutesToHM(m));   // compact sub-hour
+const wd = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
 const pct = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : '—');
 const REPORTS_LEGEND = [
   'Present — scanned in (and out). Incomplete — scanned in but never out. Absent — a working day with no scan.',
@@ -38,7 +39,7 @@ export default function Reports() {
   const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('name').order('name'), []);
   const emps = useQuery(() =>
-    supabase.from('employees').select('id,emp_code,first_name,last_name,track_attendance,shift:shifts(name)').order('emp_code'), []);
+    supabase.from('employees').select('id,emp_code,first_name,last_name,track_attendance,department:departments(name),shift:shifts(name)').order('emp_code'), []);
 
   const report = useQuery(() =>
     supabase.from('v_report_daily').select('*')
@@ -170,16 +171,22 @@ export default function Reports() {
       ['Total worked', minutesToHM(totals.worked)], ['Total overtime', minutesToHM(totals.ot)],
       ['Date range', rangeLabel],
     ];
+    // Scoped to one employee → a personal report titled with their name / dept / shift.
+    const selEmp = emp ? (emps.data ?? []).find((e) => String(e.id) === String(emp)) : null;
+    const baseFilters = [dept && `Dept: ${dept}`, shift && `Shift: ${shift}`, stat && `Status: ${stat}`].filter(Boolean).join('  ·  ');
+    const subject = selEmp ? (empName(selEmp) || `PIN ${selEmp.emp_code}`) : viewLabel;
+    const sub = selEmp
+      ? `PIN ${selEmp.emp_code}  ·  ${selEmp.department?.name || 'No department'}  ·  ${selEmp.shift?.name || 'No shift'}  ·  ${rangeLabel}${baseFilters ? `  ·  ${baseFilters}` : ''}`
+      : `${rangeLabel}${baseFilters ? `  ·  ${baseFilters}` : ''}`;
     const common = {
-      fileName: `Attendance report - ${viewLabel} - ${from} to ${to}`,
-      kicker: 'Attendance report', subject: viewLabel,
-      sub: `${rangeLabel}${filterNote ? `  ·  ${filterNote}` : ''}`,
+      fileName: `Attendance report - ${subject} - ${from} to ${to}`,
+      kicker: 'Attendance report', subject, sub,
       orientation: 'landscape', ring, hero, dist, figures, legend: REPORTS_LEGEND,
     };
     if (isDetailed) {
       const columns = ['Date', 'PIN', 'Name', 'Department', 'Shift', 'In', 'Out', 'Late', 'Worked', 'OT', 'Status'];
       const pdfRows = rows.map((r) => [
-        fmtDate(r.work_date), r.emp_code, empName(r), r.department ?? '—', r.shift ?? '—',
+        `${fmtDate(r.work_date)} · ${wd(r.work_date)}`, r.emp_code, empName(r), r.department ?? '—', r.shift ?? '—',
         r.first_in ? fmtTime(r.first_in) : '—', r.last_out ? fmtTime(r.last_out) : '—',
         (r.late_minutes ?? 0) > 0 ? hmS(r.late_minutes) : '—',
         minutesToHM(r.worked_minutes),
@@ -188,7 +195,7 @@ export default function Reports() {
       ]);
       downloadReportPDF({ ...common,
         detail: { label: viewLabel, columns, rows: pdfRows, statusCol: 10, numCols: [7, 8, 9],
-          widths: { 0: 66, 1: 34, 2: 118, 3: 90, 4: 86, 5: 44, 6: 44, 7: 48, 8: 56, 9: 46 } } });
+          widths: { 0: 96, 1: 32, 2: 104, 3: 86, 4: 82, 5: 42, 6: 42, 7: 46, 8: 54, 9: 44 } } });
     } else {
       const groupHead = view === 'employee' ? 'Employee' : view === 'department' ? 'Department' : 'Shift';
       const columns = [groupHead, 'Present', 'Absent', 'Incomplete', 'Leave', 'Bonus', 'Attendance', 'On time', 'Late days', 'Worked', 'Overtime'];

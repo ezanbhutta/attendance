@@ -109,7 +109,6 @@ function heroPanel(doc, logo, { kicker, subject, sub, ring: ringOpt, generated, 
     doc.setFillColor(255, 255, 255); doc.roundedRect(x + pad, y + 22, 22, 22, 6, 6, 'F');
     if (logo) doc.addImage(logo, 'PNG', x + pad + 3.5, y + 25.5, 15, 15);
     set(doc, 'semibold', 11, [255, 255, 255]); doc.text('HaseebMadeit', x + pad + 30, y + 37);
-    if (generated) { set(doc, 'normal', 8, PANEL_DIM); doc.text(generated, x + w - pad, y + 31, { align: 'right' }); }
   }
   let ty = compact ? y + 42 : y + 80;
   set(doc, 'semibold', 8, PANEL_DIM); tracked(doc, kicker.toUpperCase(), x + pad, ty, 1.5);
@@ -258,7 +257,7 @@ function detailTable(doc, y, columns, rows, { label = 'Day by day', statusCol = 
   return doc.lastAutoTable.finalY;
 }
 
-function footers(doc, subjectName) {
+function footers(doc, subjectName, generated) {
   const W = pageW(doc), H = pageH(doc), pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
@@ -266,6 +265,7 @@ function footers(doc, subjectName) {
     set(doc, 'semibold', 7.4, SOFT); doc.text('HaseebMadeit', M, H - 20);
     const wb = doc.getTextWidth('HaseebMadeit');
     set(doc, 'normal', 7.4, FAINT); doc.text('Attendance OS', M + wb + 7, H - 20);
+    if (generated) doc.text(generated, W / 2, H - 20, { align: 'center' });
     doc.text(`${subjectName}    ·    ${i} / ${pages}`, W - M, H - 20, { align: 'right' });
   }
 }
@@ -324,6 +324,6 @@ export async function downloadReportPDF(opts) {
   }
 
   legendBlock(doc, y, legend);
-  footers(doc, subject);
+  footers(doc, subject, `Generated ${gen}`);
   doc.save(`${(fileName || 'report').replace(/[\\/:*?"<>|]+/g, '-')}.pdf`);
 }
