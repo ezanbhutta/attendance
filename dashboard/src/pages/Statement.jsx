@@ -30,6 +30,9 @@ const dlabel = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { da
 const weekday = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' });
 const methodName = (m) => (m === 15 ? 'face' : m === 1 ? 'finger' : m == null ? '' : 'card');
 const shiftLabel = (r) => (r.scheduled_in ? `${fmtTime(r.scheduled_in)}–${fmtTime(r.scheduled_out)}` : '—');
+const hmt = (t) => (t ? String(t).slice(0, 5) : '');                       // "13:00:00" → "13:00"
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const hdMins = (h) => Math.max(0, toMin(h.to_time) - toMin(h.from_time));   // absent window in minutes
 
 function plainNote(r) {
   if (r.auto_out) return 'Auto checkout at shift end';
@@ -46,7 +49,7 @@ const FIG = (s) => [
   ['Late days', s.lateDays], ['Total late', minutesToHM(s.lateMin)], ['Total worked', minutesToHM(s.worked)],
   ['Average per day', minutesToHM(s.avgWorked)], ['Total overtime', minutesToHM(s.overtime)], ['Breaks deducted', minutesToHM(s.breakMin)],
   ['Auto check-outs', s.autoOut], ['Incomplete (no scan out)', s.incomplete], ['On leave', s.leave],
-  ['Holidays', s.holiday], ['Holiday bonus days', s.bonus], ['Weekly offs', s.off],
+  ['Half days', s.half], ['Holidays', s.holiday], ['Holiday bonus days', s.bonus], ['Weekly offs', s.off],
 ];
 
 const LEGEND = [
@@ -76,6 +79,7 @@ export default function Statement() {
   const depts = useQuery(() => supabase.from('departments').select('name').order('name'), []);
   const holidays = useQuery(() => supabase.from('holidays').select('the_date,name'), []);
   const leaves = useQuery(() => supabase.from('leaves').select('employee_id,leave_type,status,paid,start_date,end_date'), []);
+  const halfdays = useQuery(() => supabase.from('half_days').select('employee_id,the_date,from_time,to_time,reason,paid'), []);
   const report = useQuery(() =>
     supabase.from('v_report_daily').select('*').gte('work_date', from).lte('work_date', to).order('work_date'), [from, to]);
 
@@ -91,6 +95,9 @@ export default function Statement() {
   const leavesByEmp = useMemo(() => {
     const m = {}; (leaves.data ?? []).forEach((l) => { (m[l.employee_id] ||= []).push(l); }); return m;
   }, [leaves.data]);
+  const halfByEmp = useMemo(() => {
+    const m = {}; (halfdays.data ?? []).forEach((h) => { (m[h.employee_id] ||= {})[h.the_date] = h; }); return m;
+  }, [halfdays.data]);
   const reportByEmp = useMemo(() => {
     const m = {}; (report.data ?? []).forEach((r) => { (m[r.employee_id] ||= []).push(r); }); return m;
   }, [report.data]);
@@ -112,6 +119,7 @@ export default function Statement() {
     if (!lv && r.status === 'Leave') lv = (leavesByEmp[e.id] ?? []).find((l) => within(l, nextDay(r.date)));
     if (lv) parts.push(`${cap(lv.leave_type)} leave (${lv.status} · ${lv.paid ? 'paid' : 'unpaid'})`);
     if (r.status === 'WeeklyOff') parts.push('Weekly off');
+    if (r.half) parts.push(`Half day ${hmt(r.half.from_time)}–${hmt(r.half.to_time)}${r.half.reason ? ` · ${r.half.reason}` : ''} · ${r.half.paid ? 'paid' : 'unpaid'}`);
     const n = plainNote(r);
     if (n) parts.push(n);
     return parts.join(' · ');
@@ -130,6 +138,12 @@ export default function Statement() {
         worked_minutes: r?.worked_minutes ?? null, late_minutes: r?.late_minutes ?? 0, overtime_minutes: r?.overtime_minutes ?? 0,
         break_minutes: r?.break_minutes ?? 0, auto_out: r?.auto_out ?? false,
       };
+      // Half day: keep the status, flag it, and reduce the worked hours by the absent window.
+      const hd = (halfByEmp[e.id] || {})[d];
+      if (hd) {
+        row.half = hd; row.half_mins = hdMins(hd);
+        if (row.worked_minutes != null) row.worked_minutes = Math.max(0, row.worked_minutes - row.half_mins);
+      }
       row.remark = remark(e, row);
       return row;
     });
@@ -145,8 +159,9 @@ export default function Statement() {
       if ((r.late_minutes ?? 0) > 0) { a.lateDays++; a.lateMin += r.late_minutes; }
       a.overtime += r.overtime_minutes ?? 0; a.breakMin += r.break_minutes ?? 0; a.worked += r.worked_minutes ?? 0;
       if (r.auto_out) a.autoOut++;
+      if (r.half) a.half++;
       return a;
-    }, { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0 });
+    }, { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, half: 0 });
     s.total = days.length;
     s.presentTotal = s.present + s.incomplete;
     s.scheduled = s.presentTotal + s.absent;
@@ -166,7 +181,7 @@ export default function Statement() {
 
   // Aggregate summary across everyone in scope (used for shift / department).
   const agg = useMemo(() => {
-    const a = { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, total: 0 };
+    const a = { present: 0, incomplete: 0, absent: 0, leave: 0, off: 0, holiday: 0, bonus: 0, norecord: 0, lateDays: 0, lateMin: 0, overtime: 0, breakMin: 0, worked: 0, autoOut: 0, half: 0, total: 0 };
     people.forEach(({ s }) => { for (const k in a) a[k] += s[k] || 0; });
     a.presentTotal = a.present + a.incomplete;
     a.scheduled = a.presentTotal + a.absent;
@@ -188,7 +203,7 @@ export default function Statement() {
   // Day-by-day rows for one person, formatted for screen / PDF.
   const dayCols = [
     { key: 'date', label: 'Date', render: (r) => (<span className={OFF.has(r.status) ? 'muted' : ''}><strong>{dlabel(r.date)}</strong> {weekday(r.date)}</span>) },
-    { key: 'status', label: 'Status', render: (r) => (r.status ? <Badge value={r.status} /> : <span className="muted">—</span>) },
+    { key: 'status', label: 'Status', render: (r) => (r.status ? <><Badge value={r.status} />{r.half && <span className="auto-tag" style={{ marginLeft: 6 }}>half day</span>}</> : <span className="muted">—</span>) },
     { key: 'shift', label: 'Shift', sortable: false, render: (r) => <span className="muted">{shiftLabel(r)}</span> },
     { key: 'first_in', label: 'In', render: (r) => (r.first_in ? <>{fmtTime(r.first_in)}{methodName(r.in_method) && <span className="muted" style={{ fontSize: '.68rem', marginLeft: 4 }}>{methodName(r.in_method)}</span>}</> : '—') },
     { key: 'last_out', label: 'Out', render: (r) => (r.last_out ? <>{fmtTime(r.last_out)}{r.auto_out && <span className="auto-tag">auto</span>}</> : '—') },

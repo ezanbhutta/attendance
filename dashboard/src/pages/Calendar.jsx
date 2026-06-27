@@ -5,6 +5,7 @@ import { fmtDate } from '../lib/format';
 import { Card, Field, Table, Badge, ConfirmButton, ErrorBanner, Drawer, PersonRow } from '../components/ui.jsx';
 
 const fullName = (e) => (e ? `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() : '');
+const hm = (t) => (t ? String(t).slice(0, 5) : '—');   // "13:00:00" → "13:00"
 
 export default function Calendar() {
   const holidays = useQuery(() => supabase.from('holidays').select('id,the_date,name').order('the_date', { ascending: false }), []);
@@ -14,8 +15,13 @@ export default function Calendar() {
       .order('start_date', { ascending: false }), []);
   const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const workers = useQuery(() => supabase.from('holiday_workers').select('the_date,employee_id,employee:employees(emp_code,first_name,last_name)'), []);
+  const halfDays = useQuery(() =>
+    supabase.from('half_days')
+      .select('id,the_date,from_time,to_time,reason,paid,employee:employees(emp_code,first_name)')
+      .order('the_date', { ascending: false }), []);
   const [hol, setHol] = useState({ the_date: '', name: '' });
   const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved', paid: true });
+  const [hd, setHd] = useState({ employee_id: '', the_date: '', from_time: '', to_time: '', reason: '', paid: false });
   const [err, setErr] = useState(null);
   const [workHol, setWorkHol] = useState(null);   // holiday whose "who's working" drawer is open
 
@@ -31,6 +37,13 @@ export default function Calendar() {
     if (error) return setErr(error);
     setLv({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved', paid: true });
     leaves.refetch();
+  }
+  async function addHalfDay(e) {
+    e.preventDefault(); setErr(null);
+    const { error } = await supabase.from('half_days').insert(hd);
+    if (error) return setErr(error);
+    setHd({ employee_id: '', the_date: '', from_time: '', to_time: '', reason: '', paid: false });
+    halfDays.refetch();
   }
   const del = (table, id, refetch) => async () => {
     const { error } = await supabase.from(table).delete().eq('id', id);
@@ -102,6 +115,39 @@ export default function Calendar() {
             { key: 'paid', label: 'Pay', render: (r) => <Badge value={r.paid ? 'Paid' : 'Unpaid'} kind={r.paid ? 'Leave' : 'Incomplete'} /> },
             { key: 'status', label: 'Status', render: (r) => <Badge value={r.status} kind={r.status === 'approved' ? 'Leave' : 'Incomplete'} /> },
             { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del('leaves', r.id, leaves.refetch)} /> },
+          ]}
+        />
+      </Card>
+
+      <Card title="Half days" help="Mark that someone was away for part of a working day — the date and the hours they were absent. The day stays Present but is flagged a half day, and the report reduces its worked hours by this window. The system records it; it computes no pay.">
+        <form onSubmit={addHalfDay} className="row" style={{ marginBottom: 12 }}>
+          <Field label="Employee *">
+            <select required value={hd.employee_id} onChange={(e) => setHd({ ...hd, employee_id: e.target.value })}>
+              <option value="">—</option>
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {fullName(e)}</option>)}
+            </select>
+          </Field>
+          <Field label="Date *"><input type="date" required value={hd.the_date} onChange={(e) => setHd({ ...hd, the_date: e.target.value })} /></Field>
+          <Field label="Absent from *"><input type="time" required value={hd.from_time} onChange={(e) => setHd({ ...hd, from_time: e.target.value })} /></Field>
+          <Field label="Absent to *"><input type="time" required value={hd.to_time} onChange={(e) => setHd({ ...hd, to_time: e.target.value })} /></Field>
+          <Field label="Reason"><input value={hd.reason} onChange={(e) => setHd({ ...hd, reason: e.target.value })} placeholder="personal" /></Field>
+          <Field label="Pay">
+            <div className="inline-actions">
+              <button type="button" className={`btn sm ${hd.paid ? 'primary' : ''}`} onClick={() => setHd({ ...hd, paid: true })}>Paid</button>
+              <button type="button" className={`btn sm ${!hd.paid ? 'primary' : ''}`} onClick={() => setHd({ ...hd, paid: false })}>Unpaid</button>
+            </div>
+          </Field>
+          <button className="btn primary">Add half day</button>
+        </form>
+        <Table
+          loading={halfDays.loading} rows={halfDays.data} empty="No half days recorded."
+          columns={[
+            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
+            { key: 'the_date', label: 'Date', render: (r) => fmtDate(r.the_date) },
+            { key: 'hours', label: 'Absent', sortable: false, render: (r) => `${hm(r.from_time)} → ${hm(r.to_time)}` },
+            { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
+            { key: 'paid', label: 'Pay', render: (r) => <Badge value={r.paid ? 'Paid' : 'Unpaid'} kind={r.paid ? 'Leave' : 'Incomplete'} /> },
+            { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del('half_days', r.id, halfDays.refetch)} /> },
           ]}
         />
       </Card>

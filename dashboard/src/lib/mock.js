@@ -200,6 +200,10 @@ const F = {
   ]),
   holidays: [{ id: 1, the_date: dateISO(4), name: 'Eid Holiday' }, { id: 2, the_date: '2026-08-14', name: 'Independence Day' }],
   holiday_workers: [{ the_date: dateISO(4), employee_id: 1, employee: { emp_code: code(1), first_name: 'Salman', last_name: 'Khan' } }],
+  half_days: [
+    { id: 1, employee_id: 1, the_date: dateISO(2), from_time: '13:00', to_time: '17:00', reason: 'personal', paid: false, employee: { emp_code: code(1), first_name: 'Salman' } },
+    { id: 2, employee_id: 1, the_date: dateISO(3), from_time: '09:00', to_time: '11:30', reason: 'doctor',   paid: true,  employee: { emp_code: code(1), first_name: 'Salman' } },
+  ],
   leaves: [
     { id: 1, employee_id: 1, leave_type: 'annual', start_date: dateISO(9), end_date: dateISO(8), status: 'approved', paid: true,  employee: { emp_code: code(1), first_name: 'Salman' } },
     { id: 2, employee_id: 1, leave_type: 'sick',   start_date: dateISO(6), end_date: dateISO(6), status: 'pending',  paid: false, employee: { emp_code: code(1), first_name: 'Salman' } },
