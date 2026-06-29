@@ -164,7 +164,7 @@ test('ping and unknown paths ack OK', async () => {
 test('queued user-sync command is served once on the next poll', async () => {
   const app = await startApp();
   try {
-    const q = await (await fetch(`${app.url}/admin/sync-users`)).json();
+    const q = await (await fetch(`${app.url}/admin/sync-users`, { method: 'POST' })).json();
     assert.equal(q.queued, true);
     // First poll receives the command...
     const first = await (await fetch(`${app.url}/iclock/getrequest?SN=${SN}`)).text();

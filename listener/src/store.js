@@ -60,8 +60,11 @@ function createStore(config) {
     const byCode = new Map((existing || []).map((e) => [e.emp_code, e]));
 
     // Insert PINs we have never seen (carrying the device's role for new people).
+    // Clamp the device-provided role to the only two valid values (0 Normal,
+    // 14 Super Admin); a forged/garbage Pri can never inject an arbitrary level.
+    const role = (p) => (parseInt(p, 10) === 14 ? 14 : 0);
     const toInsert = users.filter((u) => !byCode.has(String(u.pin)))
-      .map((u) => ({ emp_code: String(u.pin), ...splitName(u.name, u.pin), device_privilege: u.privilege ?? 0 }));
+      .map((u) => ({ emp_code: String(u.pin), ...splitName(u.name, u.pin), device_privilege: role(u.privilege) }));
     let added = 0;
     if (toInsert.length) {
       const { data: ins, error } = await supabase.from('employees').insert(toInsert).select('id,emp_code');
@@ -83,7 +86,7 @@ function createStore(config) {
           patch.first_name = nm.first_name; patch.last_name = nm.last_name;
         }
       }
-      if (u.privilege != null && u.privilege !== ex.device_privilege) patch.device_privilege = u.privilege;
+      if (u.privilege != null && role(u.privilege) !== ex.device_privilege) patch.device_privilege = role(u.privilege);
       if (Object.keys(patch).length) {
         const { error } = await supabase.from('employees').update(patch).eq('id', ex.id);
         if (!error) updated++;
@@ -186,8 +189,10 @@ function createStore(config) {
       if (!data || !data.length) return [];
       const ids = data.map((r) => r.id);
       const now = new Date().toISOString();
+      // Wipe the plaintext password in the same update that marks it done, so it
+      // does not linger in the table after it has been handed to the device.
       await supabase.from('device_user_pushes')
-        .update({ picked_up_at: now, done_at: now })
+        .update({ picked_up_at: now, done_at: now, password: null })
         .in('id', ids);
       return data.map((r) => ({ pin: r.pin, name: r.name, card: r.card_no, privilege: r.privilege, password: r.password }));
     } catch (e) {

@@ -1,8 +1,18 @@
 'use strict';
 
 const express = require('express');
+const crypto = require('crypto');
 const log = require('./log');
 const { parseAttlog, toTimestamptz, parseInfo, parseUserinfo } = require('./parser');
+
+const ipOf = (req) => String(req.ip || '').replace(/^::ffff:/, '');
+const isLoopback = (req) => ['127.0.0.1', '::1'].includes(ipOf(req));
+// Constant-time token compare (avoids timing oracles); both sides bytes.
+function tokenEq(got, want) {
+  if (!want) return true;                       // no token configured -> not enforced
+  const a = Buffer.from(String(got || '')), b = Buffer.from(String(want));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 // CONFIRMED working handshake reply (spec §3.2). Stamp=0 requests all buffered
 // records; the rest configures realtime per-punch upload in Pakistan time.
@@ -24,19 +34,58 @@ TransInterval=1
 function createApp({ config, store, buffer }) {
   const app = express();
   app.disable('x-powered-by');
-  // Never JSON-parse the device body; it is plain text (spec §5).
-  app.use(express.raw({ type: '*/*', limit: '10mb' }));
+  // Never JSON-parse the device body; it is plain text (spec §5). Bounded so an
+  // unauthenticated caller can't push a huge body before the guard runs.
+  app.use(express.raw({ type: '*/*', limit: config.maxBodyBytes || '512kb' }));
 
   const SN = config.deviceSn;
+  const TOKEN = config.token || null;                  // LISTENER_TOKEN (shared secret)
+  const ALLOW_IPS = config.allowIps && config.allowIps.length ? config.allowIps : null; // LISTENER_ALLOW_IPS
 
-  // SN guard (spec §5). Unknown device: ack OK so it stops retrying, store nothing.
+  // Defence-in-depth: a simple per-IP fixed-window rate limit (no extra deps). The
+  // single real device polls a few dozen times a minute; the cap only bites floods.
+  const rl = new Map();
+  const RL_MAX = config.rateLimitPerMin || 1200;
+  function rateLimited(req, res) {
+    const ip = ipOf(req), now = Date.now(), slot = Math.floor(now / 60000);
+    const e = rl.get(ip);
+    if (!e || e.slot !== slot) { rl.set(ip, { slot, n: 1 }); if (rl.size > 5000) rl.clear(); return false; }
+    if (++e.n > RL_MAX) { res.status(429).type('text/plain').send('SLOW DOWN'); return true; }
+    return false;
+  }
+
+  // Ingress guard for the device protocol. Layers (any configured layer must pass):
+  //  • IP allow-list (LISTENER_ALLOW_IPS) — the practical control for device firmware
+  //    that can't present a secret; only the device's LAN IP gets through.
+  //  • shared token (LISTENER_TOKEN) via X-Auth-Token header or ?token= — fail-closed.
+  //  • the device serial (routing, NOT a security boundary — it is not secret).
+  // When neither token nor allow-list is set, behaviour is unchanged (SN only) and a
+  // loud warning is logged at startup so the operator knows the path is open.
   function guard(req, res) {
+    if (rateLimited(req, res)) return false;
+    if (ALLOW_IPS && !ALLOW_IPS.includes(ipOf(req))) {
+      log.warn(`blocked request from non-allowed IP ${ipOf(req)}`);
+      res.status(403).type('text/plain').send('FORBIDDEN'); return false;
+    }
+    if (TOKEN && !tokenEq(req.get('x-auth-token') || req.query.token, TOKEN)) {
+      log.warn(`blocked request with bad/absent token from ${ipOf(req)}`);
+      res.status(401).type('text/plain').send('UNAUTHORIZED'); return false;
+    }
     if ((req.query.SN || '') !== SN) {
-      log.warn(`rejected request SN='${req.query.SN || ''}' from ${req.ip}`);
+      log.warn(`rejected request SN='${req.query.SN || ''}' from ${ipOf(req)}`);
       res.status(200).type('text/plain').send('OK');
       return false;
     }
     return true;
+  }
+
+  // Operator routes (/admin, /healthz internals): loopback, or a valid token.
+  function adminAllowed(req) { return isLoopback(req) || (TOKEN && tokenEq(req.get('x-auth-token') || req.query.token, TOKEN)); }
+
+  if (!TOKEN && !ALLOW_IPS) {
+    log.warn('SECURITY: listener ingress is gated only by the (non-secret) device serial. '
+      + 'Set LISTENER_ALLOW_IPS=<device-ip> and/or LISTENER_TOKEN=<secret>, bind to the LAN '
+      + 'interface, and firewall the port to the device. Never expose this port to the internet.');
   }
 
   // Refresh devices.last_seen on EVERY device contact (handshake, poll, punch,
@@ -113,10 +162,12 @@ function createApp({ config, store, buffer }) {
   function normalizeAttlog(body, deviceSn) {
     const valid = [];
     const bad = [];
-    body
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
+    const lines = body.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    const MAX = config.maxAttlogLines || 5000;
+    if (lines.length > MAX) {           // cap work per request; dead-letter the overflow
+      for (const line of lines.splice(MAX)) bad.push({ line, reason: 'over-line-cap' });
+    }
+    lines
       .forEach((line) => {
         const p = parseAttlog(line);
         if (!p) return bad.push({ line, reason: 'unparseable' });
@@ -219,26 +270,26 @@ function createApp({ config, store, buffer }) {
     res.type('text/plain').send('OK');
   });
 
-  // Operator/dashboard health (NOT part of the device protocol; no SN guard).
-  app.get('/healthz', (_req, res) => {
-    res.type('application/json').send(
-      JSON.stringify({
-        ok: true,
-        device_sn: SN,
-        buffered_punches: buffer.pendingCount(),
-        pending_commands: cmdQueue.length,
-        time: new Date().toISOString(),
-      })
-    );
+  // Operator/dashboard health. Liveness is public; operational internals (serial,
+  // queue depths) only to loopback or a valid token, so they don't leak anonymously.
+  app.get('/healthz', (req, res) => {
+    const base = { ok: true, time: new Date().toISOString() };
+    const full = adminAllowed(req)
+      ? { device_sn: SN, buffered_punches: buffer.pendingCount(), pending_commands: cmdQueue.length }
+      : {};
+    res.type('application/json').send(JSON.stringify({ ...base, ...full }));
   });
 
-  // Manually re-pull the device's users / stored attendance (LAN-only; the
-  // device does the upload on its next poll). Handy for a "Sync now" button.
-  app.get('/admin/sync-users', (_req, res) => {
+  // Manually re-pull the device's users / stored attendance (the device does the
+  // upload on its next poll). POST + loopback-or-token: a custom header forces a
+  // CORS preflight, and the token/loopback check stops anonymous/CSRF triggers.
+  app.post('/admin/sync-users', (req, res) => {
+    if (!adminAllowed(req)) return res.status(401).type('text/plain').send('UNAUTHORIZED');
     const id = enqueueCommand(config.userSyncCommand || 'DATA QUERY USERINFO');
     res.type('application/json').send(JSON.stringify({ queued: true, command_id: id }));
   });
-  app.get('/admin/sync-history', (_req, res) => {
+  app.post('/admin/sync-history', (req, res) => {
+    if (!adminAllowed(req)) return res.status(401).type('text/plain').send('UNAUTHORIZED');
     const id = enqueueCommand(config.attlogSyncCommand || 'DATA QUERY ATTLOG');
     res.type('application/json').send(JSON.stringify({ queued: true, command_id: id }));
   });
@@ -261,9 +312,11 @@ function createApp({ config, store, buffer }) {
     const fields = [`PIN=${clean(pin)}`, `Name=${clean(name)}`];
     const c = clean(card);
     if (c) fields.push(`Card=${c}`);
-    if (privilege != null && privilege !== '') fields.push(`Pri=${parseInt(privilege, 10) || 0}`);
+    // Only 0 (Normal) and 14 (Super Admin) are valid roles; anything else -> Normal.
+    if (privilege != null && privilege !== '') fields.push(`Pri=${parseInt(privilege, 10) === 14 ? 14 : 0}`);
     const pw = clean(password);
-    if (pw) fields.push(`PWD=${pw}`);
+    // Device PIN/password is numeric; reject anything else so we never push junk.
+    if (pw && /^\d{1,10}$/.test(pw)) fields.push(`PWD=${pw}`);
     return enqueueCommand(`DATA UPDATE USERINFO ${fields.join('\t')}`);
   };
 

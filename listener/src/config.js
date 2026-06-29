@@ -28,6 +28,14 @@ function loadConfig() {
     supabaseServiceKey: required('SUPABASE_SERVICE_KEY'),
     port: intOpt('PORT', 8081),
     bindAddr: optional('BIND_ADDR', '0.0.0.0'),
+    // Ingress hardening (all optional; unset = legacy SN-only behaviour + a startup
+    // warning). Set at least one in production. LISTENER_ALLOW_IPS is the practical
+    // control for device firmware that can't present a secret.
+    token: optional('LISTENER_TOKEN', null),
+    allowIps: optional('LISTENER_ALLOW_IPS', '').split(',').map((s) => s.trim()).filter(Boolean),
+    maxBodyBytes: optional('MAX_BODY_BYTES', '512kb'),
+    maxAttlogLines: intOpt('MAX_ATTLOG_LINES', 5000),
+    rateLimitPerMin: intOpt('RATE_LIMIT_PER_MIN', 1200),
     deviceTzOffset: optional('DEVICE_TZ_OFFSET', '+05:00'),
     bufferDir: optional('BUFFER_DIR', '.buffer'),
     drainIntervalMs: intOpt('DRAIN_INTERVAL_MS', 15000),
