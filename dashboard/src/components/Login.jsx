@@ -42,10 +42,6 @@ export default function Login() {
           </Field>
           <button className="btn primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         </form>
-        <p className="muted" style={{ fontSize: '.82rem', marginBottom: 0 }}>
-          Admin users are created in Supabase → Authentication. The browser uses the
-          anon key; access is gated by row-level security.
-        </p>
       </Card>
     </div>
   );
