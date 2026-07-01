@@ -46,7 +46,7 @@ export default function Overview() {
     .select('employee_id,emp_code,first_name,last_name,department,status,late_minutes,first_in,last_out,scheduled_in,scheduled_out')
     .eq('work_date', today), [today]);
   const health = useQuery(() => supabase.from('v_device_health').select('*'), []);
-  const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(60), []);
+  const feed = useQuery(() => supabase.from('v_live_punches').select('*').limit(100), []);
   const unknown = useQuery(() => supabase.from('v_unknown_pins').select('*'), []);
   const roster = useQuery(() => supabase.from('employees').select('id,active,track_attendance'), []);
   const week = useQuery(() => supabase.from('v_report_daily').select('work_date,status,late_minutes')
@@ -230,7 +230,7 @@ export default function Overview() {
           : !(feed.data ?? []).length ? <div className="empty">No punches captured yet.</div>
           : (
             <div className="feed">
-              {(feed.data ?? []).slice(0, 14).map((r) => (
+              {(feed.data ?? []).map((r) => (
                 <div className="feed-row" key={r.id}>
                   <span className="feed-av">{init(r.employee, r.emp_code)}</span>
                   <div className="feed-who">
