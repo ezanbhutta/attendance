@@ -5,12 +5,14 @@ import { useQuery } from '../lib/useData';
 import { fmtDateTime } from '../lib/format';
 import { Card, Field, Table, ErrorBanner } from '../components/ui.jsx';
 
+const fullName = (e) => (e ? `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() : '');
+
 export default function Corrections() {
   const { user } = useAuth();
   const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const logs = useQuery(() =>
     supabase.from('manual_logs')
-      .select('id,punch_time,reason,created_by,created_at,employee:employees(emp_code,first_name)')
+      .select('id,punch_time,reason,created_by,created_at,employee:employees(emp_code,first_name,last_name)')
       .order('created_at', { ascending: false }).limit(100), []);
   const [f, setF] = useState({ employee_id: '', when: '', reason: '' });
   const [err, setErr] = useState(null);
@@ -43,7 +45,7 @@ export default function Corrections() {
           <Field label="Employee *">
             <select required value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })}>
               <option value="">—</option>
-              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {`${e.first_name} ${e.last_name ?? ''}`.trim()}</option>)}
+              {(employees.data ?? []).map((e) => <option key={e.id} value={e.id}>{e.emp_code} · {fullName(e)}</option>)}
             </select>
           </Field>
           <Field label="Date &amp; time *"><input type="datetime-local" required value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} /></Field>
@@ -57,7 +59,7 @@ export default function Corrections() {
           loading={logs.loading} rows={logs.data} empty="No corrections recorded."
           columns={[
             { key: 'punch_time', label: 'Punch time', render: (r) => fmtDateTime(r.punch_time) },
-            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
+            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${fullName(r.employee)}` : '—' },
             { key: 'reason', label: 'Reason' },
             { key: 'created_by', label: 'By' },
             { key: 'created_at', label: 'Logged', render: (r) => fmtDateTime(r.created_at) },

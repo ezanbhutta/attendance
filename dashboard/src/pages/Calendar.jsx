@@ -11,13 +11,13 @@ export default function Calendar() {
   const holidays = useQuery(() => supabase.from('holidays').select('id,the_date,name').order('the_date', { ascending: false }), []);
   const leaves = useQuery(() =>
     supabase.from('leaves')
-      .select('id,leave_type,start_date,end_date,status,paid,employee:employees(emp_code,first_name)')
+      .select('id,leave_type,start_date,end_date,status,paid,employee:employees(emp_code,first_name,last_name)')
       .order('start_date', { ascending: false }), []);
   const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const workers = useQuery(() => supabase.from('holiday_workers').select('the_date,employee_id,employee:employees(emp_code,first_name,last_name)'), []);
   const halfDays = useQuery(() =>
     supabase.from('half_days')
-      .select('id,the_date,from_time,to_time,reason,paid,employee:employees(emp_code,first_name)')
+      .select('id,the_date,from_time,to_time,reason,paid,employee:employees(emp_code,first_name,last_name)')
       .order('the_date', { ascending: false }), []);
   const [hol, setHol] = useState({ the_date: '', name: '' });
   const [lv, setLv] = useState({ employee_id: '', leave_type: 'annual', start_date: '', end_date: '', status: 'approved', paid: true });
@@ -109,7 +109,7 @@ export default function Calendar() {
         <Table
           loading={leaves.loading} rows={leaves.data} empty="No leave recorded."
           columns={[
-            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
+            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${fullName(r.employee)}` : '—' },
             { key: 'leave_type', label: 'Type' },
             { key: 'range', label: 'Dates', render: (r) => `${fmtDate(r.start_date)} → ${fmtDate(r.end_date)}` },
             { key: 'paid', label: 'Pay', render: (r) => <Badge value={r.paid ? 'Paid' : 'Unpaid'} kind={r.paid ? 'Leave' : 'Incomplete'} /> },
@@ -142,7 +142,7 @@ export default function Calendar() {
         <Table
           loading={halfDays.loading} rows={halfDays.data} empty="No half days recorded."
           columns={[
-            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : '—' },
+            { key: 'employee', label: 'Employee', render: (r) => r.employee ? `${r.employee.emp_code} · ${fullName(r.employee)}` : '—' },
             { key: 'the_date', label: 'Date', render: (r) => fmtDate(r.the_date) },
             { key: 'hours', label: 'Absent', sortable: false, render: (r) => `${hm(r.from_time)} → ${hm(r.to_time)}` },
             { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },

@@ -4,6 +4,8 @@ import { useQuery } from '../lib/useData';
 import { fmtDate, todayISO } from '../lib/format';
 import { Card, Field, Table, ConfirmButton, ErrorBanner } from '../components/ui.jsx';
 
+const fullName = (e) => (e ? `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim() : '');
+
 // Highest priority first (spec §7).
 const SCOPES = [
   { key: 'temporary', label: 'Temporary (one date)', table: 'temporary_schedules', fk: 'employee_id', src: 'employees', dated: false },
@@ -13,7 +15,7 @@ const SCOPES = [
 ];
 
 export default function Schedules() {
-  const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name').order('emp_code'), []);
+  const employees = useQuery(() => supabase.from('employees').select('id,emp_code,first_name,last_name').order('emp_code'), []);
   const groups = useQuery(() => supabase.from('groups').select('id,name').order('name'), []);
   const departments = useQuery(() => supabase.from('departments').select('id,name').order('name'), []);
   const shifts = useQuery(() => supabase.from('shifts').select('id,name').order('name'), []);
@@ -25,13 +27,13 @@ export default function Schedules() {
   const [err, setErr] = useState(null);
 
   const lists = {
-    temporary: useQuery(() => supabase.from('temporary_schedules').select('id,the_date,shift:shifts(name),employee:employees(emp_code,first_name)').order('the_date', { ascending: false }), []),
-    employee: useQuery(() => supabase.from('employee_schedules').select('id,start_date,end_date,shift:shifts(name),employee:employees(emp_code,first_name)').order('start_date', { ascending: false }), []),
+    temporary: useQuery(() => supabase.from('temporary_schedules').select('id,the_date,shift:shifts(name),employee:employees(emp_code,first_name,last_name)').order('the_date', { ascending: false }), []),
+    employee: useQuery(() => supabase.from('employee_schedules').select('id,start_date,end_date,shift:shifts(name),employee:employees(emp_code,first_name,last_name)').order('start_date', { ascending: false }), []),
     group: useQuery(() => supabase.from('group_schedules').select('id,start_date,end_date,shift:shifts(name),group:groups(name)').order('start_date', { ascending: false }), []),
     department: useQuery(() => supabase.from('department_schedules').select('id,start_date,end_date,shift:shifts(name),department:departments(name)').order('start_date', { ascending: false }), []),
   };
 
-  const targetLabel = (o) => o.emp_code ? `${o.emp_code} · ${o.first_name}` : o.name;
+  const targetLabel = (o) => o.emp_code ? `${o.emp_code} · ${fullName(o)}` : o.name;
 
   async function add(e) {
     e.preventDefault(); setErr(null);
@@ -92,7 +94,7 @@ export default function Schedules() {
             <Table
               loading={q.loading} rows={q.data} empty="None."
               columns={[
-                { key: 'target', label: 'Assigned to', render: (r) => r.employee ? `${r.employee.emp_code} · ${r.employee.first_name}` : (r.group?.name ?? r.department?.name) },
+                { key: 'target', label: 'Assigned to', render: (r) => r.employee ? `${r.employee.emp_code} · ${fullName(r.employee)}` : (r.group?.name ?? r.department?.name) },
                 { key: 'shift', label: 'Shift', render: (r) => r.shift?.name },
                 { key: 'when', label: 'When', render: (r) => s.dated ? `${fmtDate(r.start_date)} → ${r.end_date ? fmtDate(r.end_date) : 'ongoing'}` : fmtDate(r.the_date) },
                 { key: 'act', label: '', render: (r) => <ConfirmButton onConfirm={del(s.table, r.id, q.refetch)} /> },
