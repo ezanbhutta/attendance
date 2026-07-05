@@ -48,9 +48,13 @@ function loadConfig() {
     // it safe to re-pull. Set AUTO_SYNC_HISTORY=false to disable.
     autoSyncHistory: optional('AUTO_SYNC_HISTORY', 'true') !== 'false',
     attlogSyncCommand: optional('ATTLOG_SYNC_COMMAND', 'DATA QUERY ATTLOG'),
-    // On a full Sync, archive anyone removed on the device (history is kept).
-    // Set RECONCILE_ON_SYNC=false to turn the archive-on-removal step off.
-    reconcileOnSync: optional('RECONCILE_ON_SYNC', 'true') !== 'false',
+    // A device Sync only ADDS and UPDATES people; it must never remove them. The
+    // "mirror a device removal by archiving on the dashboard" step is OFF by
+    // default, because the device's USERINFO upload is frequently partial (it
+    // reliably lists only the fully-enrolled users), and a partial upload would
+    // wrongly archive real staff on every sync. Opt in with RECONCILE_ON_SYNC=true
+    // ONLY if your firmware reliably uploads its COMPLETE user list each time.
+    reconcileOnSync: optional('RECONCILE_ON_SYNC', 'false') === 'true',
     reconcileDelayMs: intOpt('RECONCILE_DELAY_MS', 8000),
   };
 }
