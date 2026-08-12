@@ -4,6 +4,18 @@ import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { Card, Field, Table, ErrorBanner, Badge } from '../components/ui.jsx';
 
+// Postgres dow: 0 = Sunday … 6 = Saturday. Any day can be someone's weekly off —
+// the compute compares this number against the date's dow, so all seven work.
+const WEEKDAYS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
 function friendlyDelete(error) {
   const msg = `${error?.message || ''} ${error?.details || ''}`;
   if (error?.code === '23503' || /foreign key/i.test(msg)) {
@@ -204,8 +216,7 @@ export default function Employees() {
               <select className="compact" value={r.weekly_off ?? ''} disabled={!r.track_attendance}
                       onChange={(e) => updateEmp(r.id, { weekly_off: e.target.value === '' ? null : parseInt(e.target.value, 10) })}>
                 <option value="">None</option>
-                <option value="6">Saturday</option>
-                <option value="0">Sunday</option>
+                {WEEKDAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             ) },
             { key: 'role', label: 'Role', sort: (r) => r.device_privilege ?? 0, render: (r) => (
