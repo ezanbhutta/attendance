@@ -3,18 +3,7 @@ import { Search, Plus, Archive, RotateCcw, Upload, Trash2 } from 'lucide-react';
 import { supabase, DEVICE_SN, APP_TZ } from '../lib/supabase';
 import { useQuery } from '../lib/useData';
 import { Card, Field, Table, ErrorBanner, Badge } from '../components/ui.jsx';
-
-// Postgres dow: 0 = Sunday … 6 = Saturday. Any day can be someone's weekly off —
-// the compute compares this number against the date's dow, so all seven work.
-const WEEKDAYS = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-];
+import { WEEKDAYS } from '../lib/format';
 
 function friendlyDelete(error) {
   const msg = `${error?.message || ''} ${error?.details || ''}`;
